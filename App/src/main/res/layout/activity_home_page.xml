@@ -180,17 +180,50 @@
                 android:textSize="10sp" />
         </LinearLayout>
     </LinearLayout>
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="32dp"
         android:layout_marginBottom="52dp"
-        android:src="@android:drawable/ic_input_add"
-        app:backgroundTint="@color/teal_accent"
+        android:gravity="end"
+        android:orientation="vertical"
         app:layout_constraintBottom_toTopOf="@+id/bottomNav"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:tint="@color/black" />
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/fabUpload"
+            android:theme="@style/Theme.MaterialComponents"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="Upload"
+            android:textColor="@color/black"
+            android:visibility="gone"
+            app:backgroundTint="@color/teal_accent"
+            app:icon="@android:drawable/stat_sys_upload"
+            app:iconTint="@color/black" />
+
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/fabCreateNote"
+            android:theme="@style/Theme.MaterialComponents"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="Create Note"
+            android:textColor="@color/black"
+            android:visibility="gone"
+            app:backgroundTint="@color/teal_accent"
+            app:icon="@android:drawable/ic_menu_edit"
+            app:iconTint="@color/black" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@android:drawable/ic_input_add"
+            app:backgroundTint="@color/teal_accent"
+            app:tint="@color/black" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.drawerlayout.widget.DrawerLayout>

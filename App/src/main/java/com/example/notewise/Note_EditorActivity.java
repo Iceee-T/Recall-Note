@@ -74,25 +74,9 @@ public class Note_EditorActivity extends AppCompatActivity {
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
                 if (uri != null) {
                     getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    String mimeType = getContentResolver().getType(uri);
-
-                    if (mimeType != null && mimeType.startsWith("image/")) {
-                        addNewImageBlock(uri);
-                    } else {
-                        // Show options for Documents
-                        showDocumentOptions(uri);
-                    }
+                    addNewImageBlock(uri);
                 }
             });
-
-    private final ActivityResultLauncher<Void> cameraLauncher =
-            registerForActivityResult(new ActivityResultContracts.TakePicturePreview(), bitmap -> {
-                if (bitmap != null) {
-                    addNewImageBlockFromBitmap(bitmap);
-                }
-            });
-    private void showDocumentOptions(Uri uri) {
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -143,34 +127,7 @@ public class Note_EditorActivity extends AppCompatActivity {
         });
 
         // Bottom Nav
-        // Inside onCreate
-        findViewById(R.id.btnAttach).setOnClickListener(v -> {
-            com.google.android.material.bottomsheet.BottomSheetDialog bottomSheetDialog =
-                    new com.google.android.material.bottomsheet.BottomSheetDialog(this);
-
-            // Make sure you create this layout in Step 4 below!
-            View sheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_add, null);
-
-            // 1. Logic for Photos Button
-            sheetView.findViewById(R.id.layoutPhotos).setOnClickListener(view -> {
-                attachmentLauncher.launch(new String[]{"image/*"});
-                bottomSheetDialog.dismiss();
-            });
-
-            // 2. Logic for Camera Button
-            sheetView.findViewById(R.id.layoutCamera).setOnClickListener(view -> {
-                cameraLauncher.launch(null);
-                bottomSheetDialog.dismiss();
-            });
-
-            // 3. Logic for the Close (X) Button (to match your photo)
-            sheetView.findViewById(R.id.btnCloseSheet).setOnClickListener(view -> {
-                bottomSheetDialog.dismiss();
-            });
-
-            bottomSheetDialog.setContentView(sheetView);
-            bottomSheetDialog.show();
-        });
+        findViewById(R.id.btnAttach).setOnClickListener(v -> attachmentLauncher.launch(new String[]{"image/*"}));
         findViewById(R.id.btnSummary).setOnClickListener(v -> performSummary());
         findViewById(R.id.btnStyle).setOnClickListener(this::showStyleMenu);
 
@@ -725,20 +682,5 @@ public class Note_EditorActivity extends AppCompatActivity {
             return true;
         });
         popup.show();
-    }
-    // Add this at the end of the file
-    private void addNewImageBlockFromBitmap(Bitmap bitmap) {
-        FrameLayout frame = new FrameLayout(this);
-        frame.setLayoutParams(new FrameLayout.LayoutParams(500, 500));
-        frame.setPadding(30, 30, 30, 30);
-
-        ImageView imageView = new ImageView(this);
-        imageView.setLayoutParams(new FrameLayout.LayoutParams(-1, -1));
-        imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        imageView.setImageBitmap(bitmap);
-
-        frame.addView(imageView);
-        setupInteraction(frame); // This makes it draggable/resizable
-        noteContainer.addView(frame);
     }
 }
