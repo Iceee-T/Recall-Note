@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "844265279734",
+    "firebase_url": "https://recall-note-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "recall-note",
+    "storage_bucket": "recall-note.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:844265279734:android:40c6d6f965c8808aecdcd7",
+        "android_client_info": {
+          "package_name": "com.example.notewise"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAeNpestgAr6N4QciXLg9Z9-OqeCKTqYXM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#121212"
+    android:fitsSystemWindows="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/headerContainer"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:background="#1E1E1E"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_back1"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/white" />
+
+        <EditText
+            android:id="@+id/tvTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:background="@null"
+            android:hint="Title"
+            android:textColor="@color/white"
+            android:textColorHint="#80FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/actionGroup"
+            app:layout_constraintStart_toEndOf="@id/btnBack"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <LinearLayout
+            android:id="@+id/actionGroup"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginEnd="8dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <ImageButton
+                android:id="@+id/btnUndo"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_undo"
+                app:tint="@color/white" />
+
+            <ImageButton
+                android:id="@+id/btnRedo"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_redo"
+                app:tint="@color/white" />
+
+            <ImageButton
+                android:id="@+id/btnSave"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_save"
+                app:tint="@color/white" />
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <TextView
+        android:id="@+id/tvTimestamp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="180dp"
+        android:layout_marginTop="8dp"
+        android:text="Just now"
+        android:textColor="#80FFFFFF"
+        android:textSize="12sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/headerContainer" />
+
+    <ScrollView
+        android:id="@+id/scrollView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        app:layout_constraintTop_toBottomOf="@id/tvTimestamp"
+        app:layout_constraintBottom_toTopOf="@id/formatToolbar">
+
+        <FrameLayout
+            android:id="@+id/noteContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipChildren="false">
+
+            <EditText
+                android:id="@+id/etNoteContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@null"
+                android:gravity="top"
+                android:hint="Start typing..."
+                android:padding="16dp"
+                android:textColor="@color/white"
+                android:textColorHint="#80FFFFFF"
+                android:textSize="16sp" />
+        </FrameLayout>
+    </ScrollView>
+
+    <HorizontalScrollView
+        android:id="@+id/formatToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="#252525"
+        android:scrollbars="none"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavContainer">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <ImageButton android:id="@+id/btnAlignLeft" android:layout_width="45dp" android:layout_height="45dp" android:src="@drawable/ic_align_left" android:background="?attr/selectableItemBackgroundBorderless" app:tint="@color/white"/>
+            <ImageButton android:id="@+id/btnAlignCenter" android:layout_width="45dp" android:layout_height="45dp" android:src="@drawable/ic_align_center" android:background="?attr/selectableItemBackgroundBorderless" app:tint="@color/white"/>
+            <ImageButton android:id="@+id/btnAlignRight" android:layout_width="45dp" android:layout_height="45dp" android:src="@drawable/ic_align_right" android:background="?attr/selectableItemBackgroundBorderless" app:tint="@color/white"/>
+            <View android:layout_width="1dp" android:layout_height="25dp" android:background="#444" android:layout_marginHorizontal="8dp"/>
+            <ImageButton android:id="@+id/btnBullet" android:layout_width="45dp" android:layout_height="45dp" android:src="@drawable/ic_bullets" android:background="?attr/selectableItemBackgroundBorderless" app:tint="@color/white"/>
+            <ImageButton android:id="@+id/btnHighlight" android:layout_width="45dp" android:layout_height="45dp" android:src="@drawable/ic_highlight" android:background="?attr/selectableItemBackgroundBorderless" app:tint="@color/white"/>
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <LinearLayout
+        android:id="@+id/bottomNavContainer"
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:background="#1E1E1E"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout
+            android:id="@+id/btnStyle"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:gravity="center" android:orientation="vertical" android:paddingTop="12dp">
+            <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_sortalfa" app:tint="@color/white" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Style" android:textColor="@color/white" android:textSize="12sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnSummary"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:gravity="center" android:orientation="vertical" android:paddingTop="12dp">
+            <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_aisummarize" app:tint="@color/white" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Summary" android:textColor="@color/white" android:textSize="12sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnAttach"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:gravity="center" android:orientation="vertical" android:paddingTop="12dp">
+            <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_attach" app:tint="@color/white" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Attach" android:textColor="@color/white" android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

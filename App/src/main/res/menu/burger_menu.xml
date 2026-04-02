@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/menu_account"
+        android:title="Account"
+        android:icon="@drawable/ic_acc"/>
+    <item
+        android:id="@+id/menu_achievements"
+        android:title="Achievements"
+        android:icon="@drawable/ic_calendar"/>
+
+    <item
+        android:id="@+id/menu_notifications"
+        android:title="Notifications"
+        android:icon="@drawable/ic_notif"/>
+
+    <item
+    android:id="@+id/menu_calendar"
+    android:title="Calendar"
+    android:icon="@drawable/ic_calendar"/>
+
+    <item
+        android:id="@+id/menu_settings"
+        android:title="Settings"
+        android:icon="@drawable/ic_settings"/>
+</menu>

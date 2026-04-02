@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="hintColor">#909090</color>
+    <color name="teal_700">#299cb1</color>
+    <color name="bgcolor">#121212</color> <color name="card_bg">#2C2C2C</color> <color name="teal_accent">#3D9CA8</color> <color name="text_grey">#AAAAAA</color>
+    <color name="grey">#A9A9A9</color>
+    <color name="search_bg">#E0E0E0</color>
+    <color name="dark_grey">#1A1A1A</color>
+
+</resources>

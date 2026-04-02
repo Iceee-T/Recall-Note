@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">RecallNote</string>
+    <string name="logo">AppLogo</string>
+    <string name="Search">Search</string>
+    <string name="Scroll">Scroll_View</string>
+    <string name="Filter_Button">Filter</string>
+    <string name="accessibility_description">Used to enforce active recall before social media use.</string>
+</resources>
