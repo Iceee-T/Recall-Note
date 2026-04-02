@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.notewise"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -53,4 +53,6 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.google.guava:guava:31.1-android")
+    implementation ("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation ("org.apache.poi:poi-ooxml:5.2.3")
 }
