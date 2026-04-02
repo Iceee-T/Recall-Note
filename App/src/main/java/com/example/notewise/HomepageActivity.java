@@ -18,7 +18,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
@@ -31,9 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class HomepageActivity extends AppCompatActivity {
-    private FloatingActionButton fabMain;
-    private com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton fabUpload, fabCreateNote;
-    private boolean isMenuOpen = false;
 
     private RecyclerView recyclerView;
     private NoteAdapter adapter;
@@ -52,26 +48,6 @@ public class HomepageActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home_page);
-
-        // Initialize FABs
-        fabMain = findViewById(R.id.fab);
-        fabUpload = findViewById(R.id.fabUpload);
-        fabCreateNote = findViewById(R.id.fabCreateNote);
-
-        fabMain.setOnClickListener(v -> toggleFabMenu());
-
-        // Action for Create Note
-        fabCreateNote.setOnClickListener(v -> {
-            toggleFabMenu(); // Close menu
-            startActivity(new Intent(HomepageActivity.this, Note_EditorActivity.class));
-        });
-
-        // Action for Upload
-        fabUpload.setOnClickListener(v -> {
-            toggleFabMenu(); // Close menu
-            Toast.makeText(this, "Upload Clicked", Toast.LENGTH_SHORT).show();
-            // Add your upload logic/intent here
-        });
 
         // 1. Initialize Firebase & Auth
         // We get the UID to ensure the homepage only loads THIS user's general notes
@@ -137,54 +113,6 @@ public class HomepageActivity extends AppCompatActivity {
         });
 
         // 6. Start Syncing
-
-        // Initialize the FABs
-        FloatingActionButton fabMain = findViewById(R.id.fab);
-        ExtendedFloatingActionButton fabUpload = findViewById(R.id.fabUpload);
-        ExtendedFloatingActionButton fabCreateNote = findViewById(R.id.fabCreateNote);
-
-        fabMain.setOnClickListener(v -> {
-            if (!isMenuOpen) {
-                // Show the options
-                fabUpload.setVisibility(View.VISIBLE);
-                fabCreateNote.setVisibility(View.VISIBLE);
-                fabMain.setImageResource(android.R.drawable.ic_menu_close_clear_cancel); // Change + to X
-                isMenuOpen = true;
-            } else {
-                // Hide the options
-                fabUpload.setVisibility(View.GONE);
-                fabCreateNote.setVisibility(View.GONE);
-                fabMain.setImageResource(android.R.drawable.ic_input_add); // Change X back to +
-                isMenuOpen = false;
-            }
-        });
-
-// Now set the actual destination clicks
-        fabCreateNote.setOnClickListener(v -> {
-            startActivity(new Intent(HomepageActivity.this, Note_EditorActivity.class));
-            // Optional: close menu after click
-        });
-
-        fabUpload.setOnClickListener(v -> {
-            // Replace with your Upload logic/Activity
-            Toast.makeText(this, "Upload clicked!", Toast.LENGTH_SHORT).show();
-        });
-    }
-
-    private void toggleFabMenu() {
-        if (!isMenuOpen) {
-            // Show buttons
-            fabUpload.show();
-            fabCreateNote.show();
-            fabMain.setImageResource(android.R.drawable.ic_menu_close_clear_cancel); // Change + to X
-            isMenuOpen = true;
-        } else {
-            // Hide buttons
-            fabUpload.hide();
-            fabCreateNote.hide();
-            fabMain.setImageResource(android.R.drawable.ic_input_add); // Change X back to +
-            isMenuOpen = false;
-        }
     }
 
     private void toggleStudyMode(ImageView icon, TextView text) {
@@ -216,8 +144,6 @@ public class HomepageActivity extends AppCompatActivity {
             Toast.makeText(this, "Study Mode: Do Not Disturb OFF", Toast.LENGTH_SHORT).show();
         }
     }
-
-
 
     private void loadGeneralNotes() {
         notesListener = new ValueEventListener() { // Store it here
