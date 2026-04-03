@@ -190,6 +190,8 @@ public class HomepageActivity extends AppCompatActivity {
             else if (id == R.id.menu_notifications) startActivity(new Intent(this, NotificationsActivity.class));
             else if (id == R.id.menu_settings) startActivity(new Intent(this, SettingsActivity.class));
             else if (id == R.id.menu_calendar) startActivity(new Intent(this, CalendarActivity.class));
+            else if (id == R.id.menu_achievements) {startActivity(new Intent(HomepageActivity.this, AchievementsActivity.class));
+            }
             return true;
         });
         popup.show();

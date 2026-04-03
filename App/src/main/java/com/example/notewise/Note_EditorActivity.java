@@ -40,8 +40,10 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ServerValue;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -680,6 +682,8 @@ public class Note_EditorActivity extends AppCompatActivity {
                     GeminiQuizHelper.generateSummary(text, new GeminiQuizHelper.SummaryCallback() {
                         @Override
                         public void onSuccess(String summary) {
+                            FirebaseDatabase.getInstance().getReference("users").child(FirebaseAuth.getInstance().getUid())
+                                    .child("stats").child("aiCount").setValue(ServerValue.increment(1));
                             runOnUiThread(() -> {
                                 String currentHtml = Html.toHtml(etNoteContent.getText(), Html.FROM_HTML_MODE_LEGACY);
                                 // Prepend the real AI summary to the content
@@ -714,7 +718,12 @@ public class Note_EditorActivity extends AppCompatActivity {
             if (start == end) { start = 0; end = etNoteContent.getText().length(); }
             Editable str = etNoteContent.getText();
             switch (item.getItemId()) {
-                case 1: str.setSpan(new StyleSpan(Typeface.BOLD), start, end, 0); break;
+                case 1:
+                    str.setSpan(new StyleSpan(Typeface.BOLD), start, end, 0);
+                    // INCREMENT BOLD COUNT
+                    FirebaseDatabase.getInstance().getReference("users").child(FirebaseAuth.getInstance().getUid())
+                            .child("stats").child("boldCount").setValue(ServerValue.increment(1));
+                    break;
                 case 2: str.setSpan(new StyleSpan(Typeface.ITALIC), start, end, 0); break;
                 case 3: str.setSpan(new UnderlineSpan(), start, end, 0); break;
                 case 6:
@@ -740,5 +749,9 @@ public class Note_EditorActivity extends AppCompatActivity {
         frame.addView(imageView);
         setupInteraction(frame); // This makes it draggable/resizable
         noteContainer.addView(frame);
+        FirebaseDatabase.getInstance().getReference("users")
+                .child(FirebaseAuth.getInstance().getUid())
+                .child("stats").child("photoCount")
+                .setValue(ServerValue.increment(1));
     }
 }
