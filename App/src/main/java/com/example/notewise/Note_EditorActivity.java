@@ -178,7 +178,13 @@ public class Note_EditorActivity extends AppCompatActivity {
 
         // Firebase Setup
         notebookId = getIntent().getStringExtra("notebook_id");
-        if (notebookId == null) notebookId = "general_notes";
+
+// If no specific notebook was passed, default to the user's general_notes folder
+        if (notebookId == null) {
+            String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid();
+            notebookId = "general_notes/" + currentUserId;
+        }
+
         noteRef = FirebaseDatabase.getInstance().getReference("notes").child(notebookId);
 
         // Load Note
