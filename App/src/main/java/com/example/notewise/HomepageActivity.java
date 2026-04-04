@@ -53,6 +53,9 @@ public class HomepageActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home_page);
 
+        AchievementTracker tracker = new AchievementTracker(this);
+        tracker.startGlobalTracking();
+
         // Initialize FABs
         fabMain = findViewById(R.id.fab);
         fabUpload = findViewById(R.id.fabUpload);
