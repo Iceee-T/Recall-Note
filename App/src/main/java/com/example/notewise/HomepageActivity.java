@@ -13,6 +13,8 @@ import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -48,6 +50,24 @@ public class HomepageActivity extends AppCompatActivity {
     private boolean isStudyModeActive = false;
     private android.app.NotificationManager notificationManager;
 
+
+    private final ActivityResultLauncher<String[]> filePickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.OpenDocument(),
+            uri -> {
+                if (uri != null) {
+                    // Grant long-term read permission to the URI
+                    getContentResolver().takePersistableUriPermission(uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                    // Send to Editor
+                    Intent intent = new Intent(this, Note_EditorActivity.class);
+                    intent.putExtra("FILE_URI", uri.toString());
+                    intent.putExtra("IS_AI_UPLOAD", true);
+                    startActivity(intent);
+                }
+            }
+    );
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -71,9 +91,18 @@ public class HomepageActivity extends AppCompatActivity {
 
         // Action for Upload
         fabUpload.setOnClickListener(v -> {
-            toggleFabMenu(); // Close menu
-            Toast.makeText(this, "Upload Clicked", Toast.LENGTH_SHORT).show();
-            // Add your upload logic/intent here
+            // Manually close the menu after clicking upload
+            fabUpload.setVisibility(View.GONE);
+            fabCreateNote.setVisibility(View.GONE);
+            fabMain.setImageResource(android.R.drawable.ic_input_add);
+            isMenuOpen = false;
+
+            // Launch the picker
+            filePickerLauncher.launch(new String[]{
+                    "text/plain",
+                    "application/pdf",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            });
         });
 
         // 1. Initialize Firebase & Auth
@@ -104,7 +133,6 @@ public class HomepageActivity extends AppCompatActivity {
         ImageView btnMenu = findViewById(R.id.imageButtonMenu);
         LinearLayout layoutNotebook = findViewById(R.id.layoutNotebook);
         LinearLayout layoutQuiz = findViewById(R.id.layoutQuiz);
-        FloatingActionButton fab = findViewById(R.id.fab);
         LinearLayout layoutFlashcard = findViewById(R.id.layoutFlashcard);
 
         // 3. Setup RecyclerView
@@ -133,45 +161,8 @@ public class HomepageActivity extends AppCompatActivity {
         btnMenu.setOnClickListener(this::showPopupMenu);
 
         // 5. FAB - Create new General Note inside the user's specific general folder
-        fab.setOnClickListener(v -> {
-            Intent intent = new Intent(this, Note_EditorActivity.class);
-            intent.putExtra("notebook_id", "general_notes/" + currentUserId);
-            startActivity(intent);
-        });
 
         // 6. Start Syncing
-
-        // Initialize the FABs
-        FloatingActionButton fabMain = findViewById(R.id.fab);
-        ExtendedFloatingActionButton fabUpload = findViewById(R.id.fabUpload);
-        ExtendedFloatingActionButton fabCreateNote = findViewById(R.id.fabCreateNote);
-
-        fabMain.setOnClickListener(v -> {
-            if (!isMenuOpen) {
-                // Show the options
-                fabUpload.setVisibility(View.VISIBLE);
-                fabCreateNote.setVisibility(View.VISIBLE);
-                fabMain.setImageResource(android.R.drawable.ic_menu_close_clear_cancel); // Change + to X
-                isMenuOpen = true;
-            } else {
-                // Hide the options
-                fabUpload.setVisibility(View.GONE);
-                fabCreateNote.setVisibility(View.GONE);
-                fabMain.setImageResource(android.R.drawable.ic_input_add); // Change X back to +
-                isMenuOpen = false;
-            }
-        });
-
-// Now set the actual destination clicks
-        fabCreateNote.setOnClickListener(v -> {
-            startActivity(new Intent(HomepageActivity.this, Note_EditorActivity.class));
-            // Optional: close menu after click
-        });
-
-        fabUpload.setOnClickListener(v -> {
-            // Replace with your Upload logic/Activity
-            Toast.makeText(this, "Upload clicked!", Toast.LENGTH_SHORT).show();
-        });
     }
 
     private void toggleFabMenu() {

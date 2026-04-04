@@ -1,5 +1,9 @@
 package com.example.notewise;
 
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import java.io.InputStream;
+import java.util.Scanner;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -23,6 +27,7 @@ import android.text.style.BulletSpan;
 import android.text.style.LeadingMarginSpan;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
@@ -51,6 +56,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Stack;
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
+import com.tom_roush.pdfbox.pdmodel.PDDocument;
+import com.tom_roush.pdfbox.text.PDFTextStripper;
 
 public class Note_EditorActivity extends AppCompatActivity {
 
@@ -71,6 +79,7 @@ public class Note_EditorActivity extends AppCompatActivity {
     private Stack<CharSequence> undoStack = new Stack<>();
     private Stack<CharSequence> redoStack = new Stack<>();
     private boolean isUndoRedoOperation = false;
+
 
     private final ActivityResultLauncher<String[]> attachmentLauncher =
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
@@ -100,6 +109,16 @@ public class Note_EditorActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_note_editor);
+        com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(getApplicationContext());
+
+        // Inside onCreate, after initializing your views
+        boolean isAiUpload = getIntent().getBooleanExtra("IS_AI_UPLOAD", false);
+        String fileUriString = getIntent().getStringExtra("FILE_URI");
+
+        if (isAiUpload && fileUriString != null) {
+            Uri fileUri = Uri.parse(fileUriString);
+            processDocumentWithAi(fileUri);
+        }
 
         // Initialize Views
         etNoteContent = findViewById(R.id.etNoteContent);
@@ -203,6 +222,81 @@ public class Note_EditorActivity extends AppCompatActivity {
             @Override
             public void handleOnBackPressed() { saveAndExit(); }
         });
+    }
+
+    private void processDocumentWithAi(Uri uri) {
+        Toast.makeText(this, "AI is reading your document...", Toast.LENGTH_LONG).show();
+
+        new Thread(() -> {
+            try {
+                String mimeType = getContentResolver().getType(uri);
+                String fileContent = "";
+
+                if ("application/pdf".equals(mimeType)) {
+                    // PDF logic using PDFBox
+                    InputStream inputStream = getContentResolver().openInputStream(uri);
+                    PDDocument document = PDDocument.load(inputStream);
+                    PDFTextStripper pdfStripper = new PDFTextStripper();
+                    fileContent = pdfStripper.getText(document);
+                    document.close();
+                    inputStream.close();
+                }
+                else if ("application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(mimeType)) {
+                    // <--- INSERT THE NEW BLOCK HERE --->
+                    try {
+                        InputStream inputStream = getContentResolver().openInputStream(uri);
+                        // Explicitly check for null
+                        if (inputStream == null) throw new Exception("Could not open file stream");
+
+                        XWPFDocument doc = new XWPFDocument(inputStream);
+                        StringBuilder sb = new StringBuilder();
+                        for (XWPFParagraph para : doc.getParagraphs()) {
+                            sb.append(para.getText()).append("\n");
+                        }
+                        fileContent = sb.toString();
+                        doc.close();
+                    } catch (NoClassDefFoundError | NoSuchMethodError e) {
+                        // This catches the specific technical errors you're seeing in Logcat
+                        Log.e("DOCX_ERROR", "Library compatibility issue: " + e.getMessage());
+                        fileContent = "Error: Library compatibility issue. Please try a .txt or .pdf file instead.";
+                    }
+                }
+                else {
+                    // Standard Text file logic
+                    InputStream inputStream = getContentResolver().openInputStream(uri);
+                    Scanner scanner = new Scanner(inputStream).useDelimiter("\\A");
+                    fileContent = scanner.hasNext() ? scanner.next() : "";
+                    inputStream.close();
+                }
+
+                // Send the extracted text to Gemini
+                String finalFileContent = fileContent;
+                GeminiQuizHelper.generateSummaryFromText(finalFileContent, new GeminiQuizHelper.SummaryCallback() {
+                    @Override
+                    public void onSuccess(String summary) {
+                        runOnUiThread(() -> {
+                            etNoteContent.setText(Html.fromHtml(summary, Html.FROM_HTML_MODE_COMPACT));
+                            tvTitle.setText("AI Note: " + uri.getLastPathSegment());
+                        });
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        runOnUiThread(() -> {
+                            // 1. This prints the FULL message to the Logcat window in Android Studio
+                            android.util.Log.e("AI_DEBUG", "Full Error Message: " + error);
+
+                            // 2. This is what you currently see on screen
+                            Toast.makeText(Note_EditorActivity.this, "AI Error: " + error, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
+
+            } catch (Exception e) {
+                android.util.Log.e("FILE_ERROR", "Error: ", e);
+                runOnUiThread(() -> Toast.makeText(this, "Failed to read file", Toast.LENGTH_SHORT).show());
+            }
+        }).start();
     }
 
     // Reliable Deselect Logic
@@ -760,4 +854,6 @@ public class Note_EditorActivity extends AppCompatActivity {
                 .child("stats").child("photoCount")
                 .setValue(ServerValue.increment(1));
     }
+
+
 }
