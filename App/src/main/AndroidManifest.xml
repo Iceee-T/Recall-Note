@@ -64,6 +64,9 @@
             android:name=".AccountActivity"
             android:exported="false" />
         <activity
+            android:name=".AchievementsActivity"
+            android:exported="false" />
+        <activity
             android:name=".GenerateQuiz"
             android:exported="false" />
         <activity

@@ -8,7 +8,7 @@
     <item
         android:id="@+id/menu_achievements"
         android:title="Achievements"
-        android:icon="@drawable/ic_calendar"/>
+        android:icon="@android:drawable/btn_star_big_on" />
 
     <item
         android:id="@+id/menu_notifications"
