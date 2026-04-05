@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -56,7 +59,17 @@ android {
     // Add this if it's not there to help with modern Java features
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
+
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localProperties.load(FileInputStream(localPropertiesFile))
+    }
+    val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: ""
+
+    android.defaultConfig.buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
 }
 
 dependencies {
@@ -89,4 +102,5 @@ dependencies {
 
     // Keep your PDFBox
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 }

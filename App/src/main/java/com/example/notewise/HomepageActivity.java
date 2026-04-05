@@ -2,8 +2,10 @@ package com.example.notewise;
 
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Html;
+import android.util.Log;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.widget.EditText;
@@ -28,7 +30,10 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,6 +41,7 @@ public class HomepageActivity extends AppCompatActivity {
     private FloatingActionButton fabMain;
     private com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton fabUpload, fabCreateNote;
     private boolean isMenuOpen = false;
+    private String pendingHighlightNoteId = null;
 
     private RecyclerView recyclerView;
     private NoteAdapter adapter;
@@ -49,21 +55,19 @@ public class HomepageActivity extends AppCompatActivity {
     private ValueEventListener notesListener;
     private boolean isStudyModeActive = false;
     private android.app.NotificationManager notificationManager;
+    private android.app.ProgressDialog loadingDialog;
 
 
     private final ActivityResultLauncher<String[]> filePickerLauncher = registerForActivityResult(
             new ActivityResultContracts.OpenDocument(),
             uri -> {
                 if (uri != null) {
-                    // Grant long-term read permission to the URI
                     getContentResolver().takePersistableUriPermission(uri,
                             Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-                    // Send to Editor
-                    Intent intent = new Intent(this, Note_EditorActivity.class);
-                    intent.putExtra("FILE_URI", uri.toString());
-                    intent.putExtra("IS_AI_UPLOAD", true);
-                    startActivity(intent);
+                    // Show loading dialog
+                    showLoadingDialog();
+                    // Process file in background
+                    processUploadedFile(uri);
                 }
             }
     );
@@ -72,6 +76,7 @@ public class HomepageActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home_page);
+        PDFBoxResourceLoader.init(getApplicationContext());
 
         AchievementTracker tracker = new AchievementTracker(this);
         tracker.startGlobalTracking();
@@ -159,10 +164,19 @@ public class HomepageActivity extends AppCompatActivity {
         layoutQuiz.setOnClickListener(v -> startActivity(new Intent(this, QuizActivity.class)));
         layoutFlashcard.setOnClickListener(v -> startActivity(new Intent(this, FlashcardActivity.class)));
         btnMenu.setOnClickListener(this::showPopupMenu);
+    }
 
-        // 5. FAB - Create new General Note inside the user's specific general folder
+    private void showLoadingDialog() {
+        loadingDialog = new android.app.ProgressDialog(this);
+        loadingDialog.setMessage("AI is creating a study note from your file...");
+        loadingDialog.setCancelable(false);
+        loadingDialog.show();
+    }
 
-        // 6. Start Syncing
+    private void dismissLoadingDialog() {
+        if (loadingDialog != null && loadingDialog.isShowing()) {
+            loadingDialog.dismiss();
+        }
     }
 
     private void toggleFabMenu() {
@@ -211,26 +225,225 @@ public class HomepageActivity extends AppCompatActivity {
         }
     }
 
+    private String extractTextFromUri(Uri uri, String mimeType) throws IOException {
+        try (InputStream is = getContentResolver().openInputStream(uri)) {
+            if (is == null) {
+                runOnUiThread(() -> Toast.makeText(this, "Cannot open file", Toast.LENGTH_SHORT).show());
+                return null;
+            }
+
+            // Plain text
+            if ("text/plain".equals(mimeType)) {
+                try (java.util.Scanner scanner = new java.util.Scanner(is, "UTF-8")) {
+                    scanner.useDelimiter("\\A");
+                    return scanner.hasNext() ? scanner.next() : "";
+                }
+            }
+            // PDF
+            else if ("application/pdf".equals(mimeType)) {
+                try {
+                    com.tom_roush.pdfbox.pdmodel.PDDocument doc = com.tom_roush.pdfbox.pdmodel.PDDocument.load(is);
+                    com.tom_roush.pdfbox.text.PDFTextStripper stripper = new com.tom_roush.pdfbox.text.PDFTextStripper();
+                    String text = stripper.getText(doc);
+                    doc.close();
+                    if (text == null || text.trim().isEmpty()) {
+                        runOnUiThread(() -> {
+                            Toast.makeText(this,
+                                    "This PDF contains no selectable text (scanned or image-based). Please use a text-based PDF.",
+                                    Toast.LENGTH_LONG).show();
+                        });
+                        return null;
+                    }
+                    return text;
+                } catch (Exception e) {
+                    Log.e("PDF_EXTRACT", "PDF parsing failed", e);
+                    runOnUiThread(() -> Toast.makeText(this, "PDF error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                    return null;
+                }
+            }
+            // DOCX (Word)
+            else if ("application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(mimeType)) {
+                try {
+                    org.apache.poi.xwpf.usermodel.XWPFDocument doc = new org.apache.poi.xwpf.usermodel.XWPFDocument(is);
+                    StringBuilder sb = new StringBuilder();
+                    for (org.apache.poi.xwpf.usermodel.XWPFParagraph para : doc.getParagraphs()) {
+                        sb.append(para.getText()).append("\n");
+                    }
+                    doc.close();
+                    return sb.toString();
+                } catch (Exception e) {
+                    Log.e("DOCX_EXTRACT", "DOCX parsing failed", e);
+                    runOnUiThread(() -> Toast.makeText(this, "DOCX parsing error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                    return null;
+                }
+            }
+            else {
+                runOnUiThread(() -> Toast.makeText(this, "Unsupported file type: " + mimeType, Toast.LENGTH_SHORT).show());
+                return null;
+            }
+        }
+    }
+
+    private void highlightNewNoteWhenAdded(String noteId) {
+        pendingHighlightNoteId = noteId;
+        // Force the adapter to re-check – the listener will soon add the note.
+        // We'll check inside the listener.
+    }
+
+    private void processUploadedFile(Uri uri) {
+        // Run on background thread
+        new Thread(() -> {
+            try {
+                // 1. Get MIME type
+                String mimeType = getContentResolver().getType(uri);
+                if (mimeType == null) mimeType = "text/plain";
+
+                // 2. Extract text
+                String extractedText = extractTextFromUri(uri, mimeType);
+                if (extractedText == null || extractedText.isEmpty()) {
+                    String finalMimeType = mimeType;
+                    runOnUiThread(() -> {
+                        dismissLoadingDialog();
+                        // Only show generic message if it wasn't already handled by PDF branch
+                        // (PDF branch already shows its own toast)
+                        if (!"application/pdf".equals(finalMimeType)) {
+                            Toast.makeText(this, "Could not read file content.", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                    return;
+                }
+
+                // Limit input to 3000 characters to keep AI output manageable
+                if (extractedText.length() > 3000) {
+                    extractedText = extractedText.substring(0, 3000);
+                    Log.d("AI_INPUT", "Truncated input to 3000 chars");
+                }
+
+                // 3. Call AI to generate a structured note (title + HTML content)
+                GeminiQuizHelper.generateStructuredNote(extractedText, new GeminiQuizHelper.StructuredNoteCallback() {
+                    @Override
+                    public void onSuccess(String title, String htmlContent) {
+                        // 4. Save to Firebase (general notes)
+                        saveAiGeneratedNote(title, htmlContent);
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        runOnUiThread(() -> {
+                            dismissLoadingDialog();
+                            Toast.makeText(HomepageActivity.this,
+                                    "AI error: " + error, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                runOnUiThread(() -> {
+                    dismissLoadingDialog();
+                    Toast.makeText(HomepageActivity.this,
+                            "Error processing file: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
+        }).start();
+    }
+
+    private void saveAiGeneratedNote(String title, String htmlContent) {
+        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        DatabaseReference notesRef = FirebaseDatabase.getInstance()
+                .getReference("notes")
+                .child("general_notes")
+                .child(userId);
+
+        String noteId = notesRef.push().getKey();
+        Note newNote = new Note();
+        newNote.setId(noteId);
+        newNote.setTitle(title);
+        newNote.setContent(htmlContent);
+
+        notesRef.child(noteId).setValue(newNote)
+                .addOnSuccessListener(aVoid -> {
+                    runOnUiThread(() -> {
+                        dismissLoadingDialog();
+                        Toast.makeText(HomepageActivity.this,
+                                "Study note created: " + title, Toast.LENGTH_SHORT).show();
+
+                        // The Firebase listener will automatically add the note.
+                        // We just need to highlight it when it appears.
+                        // Store the new note's ID so we can highlight it after the listener adds it.
+                        highlightNewNoteWhenAdded(noteId);
+                        Log.d("HIGHLIGHT", "Pending highlight ID set to " + noteId);
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    runOnUiThread(() -> {
+                        dismissLoadingDialog();
+                        Toast.makeText(HomepageActivity.this,
+                                "Failed to save note: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+                });
+    }
+
+    private void highlightNewNote(int position) {
+        highlightWithRetry(position, 0);
+    }
+
+    private void highlightWithRetry(int position, int attempt) {
+        if (attempt > 5) {
+            Log.d("HIGHLIGHT", "Failed to highlight after 5 attempts");
+            return;
+        }
+        recyclerView.postDelayed(() -> {
+            RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(position);
+            if (holder != null && holder.itemView != null) {
+                View itemView = holder.itemView;
+                android.graphics.drawable.Drawable originalBg = itemView.getBackground();
+                itemView.setBackgroundColor(getResources().getColor(R.color.teal_accent));
+                itemView.postDelayed(() -> {
+                    if (originalBg != null) {
+                        itemView.setBackground(originalBg);
+                    } else {
+                        itemView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+                    }
+                }, 3000);
+                Log.d("HIGHLIGHT", "Highlight applied at position " + position);
+            } else {
+                Log.d("HIGHLIGHT", "Retry attempt " + attempt + " for position " + position);
+                highlightWithRetry(position, attempt + 1);
+            }
+        }, 150);
+    }
 
 
     private void loadGeneralNotes() {
-        notesListener = new ValueEventListener() { // Store it here
+        notesListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 noteList.clear();
+                int newNotePosition = -1;
                 for (DataSnapshot noteSnapshot : snapshot.getChildren()) {
                     Note note = noteSnapshot.getValue(Note.class);
                     if (note != null) {
                         note.setId(noteSnapshot.getKey());
-                        noteList.add(0, note);
+                        noteList.add(0, note); // add at top
+                        // Check if this is the note we just created
+                        if (pendingHighlightNoteId != null && pendingHighlightNoteId.equals(note.getId())) {
+                            newNotePosition = 0;
+                            pendingHighlightNoteId = null;
+                            Log.d("HIGHLIGHT", "Found note to highlight: " + note.getId());
+                        }
                     }
                 }
                 adapter.notifyDataSetChanged();
+
+                // Highlight the new note if found
+                if (newNotePosition != -1) {
+                    highlightNewNote(newNotePosition);
+                }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                // ADD THIS CHECK: Only show error if we didn't just sign out
                 if (FirebaseAuth.getInstance().getCurrentUser() != null) {
                     Toast.makeText(HomepageActivity.this, "Sync failed: " + error.getMessage(), Toast.LENGTH_SHORT).show();
                 }

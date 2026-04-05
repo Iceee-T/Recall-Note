@@ -1,7 +1,8 @@
 package com.example.notewise;
 
+import com.google.ai.client.generativeai.type.GenerationConfig;
 import android.util.Log;
-
+import com.example.notewise.BuildConfig;
 import com.google.ai.client.generativeai.GenerativeModel;
 import com.google.ai.client.generativeai.java.GenerativeModelFutures;
 import com.google.ai.client.generativeai.type.BlockThreshold;
@@ -32,8 +33,7 @@ public class GeminiQuizHelper {
     private GenerativeModelFutures model;
     private static final String TAG = "GEMINI_DEBUG";
 
-    // Original API Key
-    private static final String API_KEY = "AIzaSyCemHxlvPRMbCMudPGvcFSuzsDvtfQW19Q";
+    private static final String API_KEY = BuildConfig.GEMINI_API_KEY;
 
 
 
@@ -263,4 +263,66 @@ public class GeminiQuizHelper {
             }
         }, executor);
     }
+
+    public interface StructuredNoteCallback {
+        void onSuccess(String title, String htmlContent);
+        void onError(String error);
+    }
+
+    public static void generateStructuredNote(String fullText, StructuredNoteCallback callback) {
+        List<SafetySetting> safetySettings = new ArrayList<>();
+        safetySettings.add(new SafetySetting(HarmCategory.HATE_SPEECH, BlockThreshold.ONLY_HIGH));
+        safetySettings.add(new SafetySetting(HarmCategory.DANGEROUS_CONTENT, BlockThreshold.ONLY_HIGH));
+
+        GenerativeModel gm = new GenerativeModel(
+                "gemini-2.5-flash",
+                API_KEY,
+                null,
+                safetySettings
+        );
+        GenerativeModelFutures model = GenerativeModelFutures.from(gm);
+
+        // Prompt that asks for a JSON object with "title" and "content"
+        String prompt = "You are an expert study assistant. Create a well-structured study note from the text below.\n" +
+                "Return ONLY a valid JSON object with two keys: \"title\" (a short, descriptive title) and \"content\" (HTML formatted study note).\n" +
+                "In the content, use <b>, <i>, <ul>, <li> for structure. Include key concepts and explanations.\n\n" +
+                "Text:\n" + fullText;
+
+        Content content = new Content.Builder().addText(prompt).build();
+        Executor executor = Executors.newSingleThreadExecutor();
+        ListenableFuture<GenerateContentResponse> response = model.generateContent(content);
+
+        Futures.addCallback(response, new FutureCallback<GenerateContentResponse>() {
+            @Override
+            public void onSuccess(GenerateContentResponse result) {
+                String raw = result.getText();
+                if (raw == null || raw.isEmpty()) {
+                    callback.onError("AI returned empty response");
+                    return;
+                }
+                try {
+                    // Clean JSON (remove markdown if present)
+                    String cleaned = raw.trim();
+                    if (cleaned.startsWith("```")) {
+                        cleaned = cleaned.replaceAll("(?s)^```(?:json)?\\n|\\n```$", "");
+                    }
+                    // Parse JSON
+                    org.json.JSONObject obj = new org.json.JSONObject(cleaned);
+                    String title = obj.getString("title");
+                    String contentHtml = obj.getString("content");
+                    callback.onSuccess(title, contentHtml);
+                } catch (Exception e) {
+                    Log.e(TAG, "JSON parse error", e);
+                    callback.onError("Failed to parse AI response: " + e.getMessage());
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                Log.e(TAG, "API error", t);
+                callback.onError("API error: " + t.getMessage());
+            }
+        }, executor);
+    }
+
 }
