@@ -20,14 +20,9 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-/**
- * Helper class to interact with Google Gemini AI for generating quizzes,
- * flashcards, and summaries with "High Priority" highlighting support.
- */
 public class GeminiQuizHelper {
 
     private static final String TAG = "GEMINI_DEBUG";
-    // Replace with your actual secure API Key management
     private static final String API_KEY = "AIzaSyCemHxlvPRMbCMudPGvcFSuzsDvtfQW19Q";
     private static final String MODEL_NAME = "gemini-1.5-flash";
 
@@ -49,9 +44,6 @@ public class GeminiQuizHelper {
         void onError(String error);
     }
 
-    /**
-     * Initializes the Gemini model with specific safety thresholds.
-     */
     private static GenerativeModelFutures getModel() {
         List<SafetySetting> safetySettings = new ArrayList<>();
         safetySettings.add(new SafetySetting(HarmCategory.HATE_SPEECH, BlockThreshold.ONLY_HIGH));
@@ -61,26 +53,17 @@ public class GeminiQuizHelper {
         return GenerativeModelFutures.from(gm);
     }
 
-    /**
-     * Generates a quiz. Prioritizes text in **bold** or [[brackets]].
-     */
     public static void generateQuiz(String noteContent, String difficulty, String numQuestions, QuizCallback callback) {
-        String prompt = "You are an educator. Generate a quiz from the notes below.\n\n" +
+        String prompt = "Generate a quiz from these notes. PRIORITY RULE: Text in **bold** or [[brackets]] is highly important. " +
+                "Focus 70% of questions on these marked topics.\n\n" +
                 "NOTES:\n" + noteContent + "\n\n" +
-                "HIGH PRIORITY INSTRUCTION:\n" +
-                "- Any text in **bold** or [[brackets]] is highly important.\n" +
-                "- Ensure at least 60% of the questions are about these prioritized topics.\n\n" +
-                "REQUIREMENTS:\n" +
-                "- Difficulty: " + difficulty + "\n" +
-                "- Number of Questions: " + numQuestions + "\n" +
-                "- Format: Return ONLY a raw JSON array. No preamble.\n" +
-                "- Structure: Array of objects with 'questionText', 'choices' (4), 'correctOptionIndex', and 'type'.";
+                "Difficulty: " + difficulty + " | Count: " + numQuestions + "\n" +
+                "Format: Return ONLY a raw JSON array of objects with 'questionText', 'choices' (4), 'correctOptionIndex', and 'type'.";
 
         executeRequest(getModel(), prompt, new InternalParser<List<QuestionModel>>() {
             @Override
             public List<QuestionModel> parse(String raw) {
-                Type listType = new TypeToken<ArrayList<QuestionModel>>(){}.getType();
-                return new Gson().fromJson(cleanJson(raw), listType);
+                return new Gson().fromJson(cleanJson(raw), new TypeToken<ArrayList<QuestionModel>>(){}.getType());
             }
             @Override
             public void onSuccess(List<QuestionModel> result) { callback.onSuccess(result); }
@@ -89,23 +72,17 @@ public class GeminiQuizHelper {
         });
     }
 
-    /**
-     * Generates flashcards. Prioritizes text in **bold** or [[brackets]].
-     */
     public static void generateFlashcards(String noteContent, String type, String difficulty, String count, FlashcardCallback callback) {
-        String taskDetail = type.equalsIgnoreCase("Terminology") ? "Front=Term, Back=Definition" : "Front=Sentence blank, Back=Word";
-
-        String prompt = "Generate study flashcards. Prioritize text in **bold** or [[brackets]].\n\n" +
+        String task = type.equalsIgnoreCase("Terminology") ? "Front=Term, Back=Def" : "Front=Sentence blank, Back=Word";
+        String prompt = "Create flashcards. PRIORITY RULE: Prioritize text in **bold** or [[brackets]].\n\n" +
                 "NOTES:\n" + noteContent + "\n\n" +
-                "TASK: " + taskDetail + "\n" +
-                "Count: " + count + "\n" +
-                "Output: ONLY raw JSON array of objects with 'front' and 'back' fields.";
+                "TASK: " + task + " | Count: " + count + "\n" +
+                "Output: ONLY raw JSON array of objects with 'front' and 'back'.";
 
         executeRequest(getModel(), prompt, new InternalParser<List<Flashcard>>() {
             @Override
             public List<Flashcard> parse(String raw) {
-                Type listType = new TypeToken<ArrayList<Flashcard>>(){}.getType();
-                return new Gson().fromJson(cleanJson(raw), listType);
+                return new Gson().fromJson(cleanJson(raw), new TypeToken<ArrayList<Flashcard>>(){}.getType());
             }
             @Override
             public void onSuccess(List<Flashcard> result) { callback.onSuccess(result); }
@@ -114,9 +91,6 @@ public class GeminiQuizHelper {
         });
     }
 
-    /**
-     * Generates comprehensive study notes using HTML formatting.
-     */
     public static void generateSummaryFromText(String fullText, SummaryCallback callback) {
         String prompt = "Create comprehensive study notes using HTML (<b>, <i>, <ul>, <li>).\n" +
                 "Structure: Title, Key Concepts, and detailed explanations.\n\n" +
@@ -132,23 +106,15 @@ public class GeminiQuizHelper {
         });
     }
 
-    /**
-     * CLEANJSON FIX: Instead of using problematic regex (replaceAll),
-     * this manually finds the start and end of the JSON array/object.
-     */
+    // FIXED: Uses substring instead of replaceAll to avoid regex errors
     private static String cleanJson(String raw) {
         if (raw == null || raw.isEmpty()) return "[]";
-
         String s = raw.trim();
-
-        // Find the JSON boundaries to ignore markdown code block markers
         int start = s.indexOf("[");
         int end = s.lastIndexOf("]");
-
         if (start != -1 && end != -1 && end > start) {
             return s.substring(start, end + 1);
         }
-
         return s;
     }
 
@@ -158,9 +124,6 @@ public class GeminiQuizHelper {
         void onError(String error);
     }
 
-    /**
-     * Generic wrapper for model execution to reduce repeated code.
-     */
     private static <T> void executeRequest(GenerativeModelFutures model, String prompt, InternalParser<T> parser) {
         Content content = new Content.Builder().addText(prompt).build();
         Executor executor = Executors.newSingleThreadExecutor();
@@ -171,19 +134,12 @@ public class GeminiQuizHelper {
             public void onSuccess(GenerateContentResponse result) {
                 try {
                     String raw = result.getText();
-                    if (raw == null) {
-                        parser.onError("Empty AI response");
-                        return;
-                    }
+                    if (raw == null) { parser.onError("Empty response"); return; }
                     parser.onSuccess(parser.parse(raw));
-                } catch (Exception e) {
-                    parser.onError("Data parsing failed");
-                }
+                } catch (Exception e) { parser.onError("Parse error"); }
             }
             @Override
-            public void onFailure(Throwable t) {
-                parser.onError(t.getLocalizedMessage());
-            }
+            public void onFailure(Throwable t) { parser.onError(t.getLocalizedMessage()); }
         }, executor);
     }
 }
