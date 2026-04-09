@@ -48,9 +48,7 @@
             <include android:id="@+id/ach_3" layout="@layout/item_achievement" />
             <include android:id="@+id/ach_4" layout="@layout/item_achievement" />
             <include android:id="@+id/ach_5" layout="@layout/item_achievement" />
-            <include android:id="@+id/ach_6" layout="@layout/item_achievement" />
             <include android:id="@+id/ach_7" layout="@layout/item_achievement" />
-            <include android:id="@+id/ach_8" layout="@layout/item_achievement" />
             <include android:id="@+id/ach_notebook_master" layout="@layout/item_achievement" />
         </LinearLayout>
     </ScrollView>

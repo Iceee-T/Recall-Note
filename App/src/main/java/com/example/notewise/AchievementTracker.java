@@ -23,15 +23,13 @@ public class AchievementTracker {
 
     public AchievementTracker(Context context) {
         this.context = context;
+        // Use the same Prefs name as AchievementsActivity
         this.prefs = context.getSharedPreferences("AchievementPrefs", Context.MODE_PRIVATE);
         this.mDatabase = FirebaseDatabase.getInstance().getReference();
         this.userId = FirebaseAuth.getInstance().getUid();
 
-        prefs.edit().clear().apply();
-
-        this.mDatabase = FirebaseDatabase.getInstance().getReference();
-        this.userId = FirebaseAuth.getInstance().getUid();
     }
+
 
     public void startGlobalTracking() {
         if (userId == null) return;
@@ -68,12 +66,12 @@ public class AchievementTracker {
     }
 
     private void checkAndNotify(String title, String desc, int cur, int total) {
-        // Logic: Only notify if the goal is met and we haven't shown it before
         if (cur >= total && total > 0) {
-            boolean alreadyShown = prefs.getBoolean("shown_" + title, false);
+            // Use "notified_" to match your AchievementsActivity logic
+            boolean alreadyShown = prefs.getBoolean("notified_" + title, false);
             if (!alreadyShown) {
                 showSystemNotification(title, desc);
-                prefs.edit().putBoolean("shown_" + title, true).apply();
+                prefs.edit().putBoolean("notified_" + title, true).apply();
             }
         }
     }

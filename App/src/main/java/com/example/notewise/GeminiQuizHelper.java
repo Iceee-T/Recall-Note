@@ -1,7 +1,6 @@
 package com.example.notewise;
 
 import android.util.Log;
-
 import com.google.ai.client.generativeai.GenerativeModel;
 import com.google.ai.client.generativeai.java.GenerativeModelFutures;
 import com.google.ai.client.generativeai.type.BlockThreshold;
@@ -17,27 +16,24 @@ import com.google.gson.reflect.TypeToken;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
+/**
+ * Helper class to interact with Google Gemini AI for generating quizzes,
+ * flashcards, and summaries with "High Priority" highlighting support.
+ */
 public class GeminiQuizHelper {
 
-    private GenerativeModelFutures model;
     private static final String TAG = "GEMINI_DEBUG";
-
-    // Original API Key
+    // Replace with your actual secure API Key management
     private static final String API_KEY = "AIzaSyCemHxlvPRMbCMudPGvcFSuzsDvtfQW19Q";
+    private static final String MODEL_NAME = "gemini-1.5-flash";
 
+    public static void generateSummary(String text, SummaryCallback summaryCallback) {
+    }
 
-
-    // Original Quiz Callback
     public interface QuizCallback {
         void onSuccess(List<QuestionModel> questions);
         void onError(String error);
@@ -48,155 +44,124 @@ public class GeminiQuizHelper {
         void onError(String error);
     }
 
-    // New Summary Callback for the added feature
     public interface SummaryCallback {
         void onSuccess(String summary);
         void onError(String error);
     }
 
     /**
-     * Original logic for generating a quiz from note content
+     * Initializes the Gemini model with specific safety thresholds.
      */
-    public static void generateQuiz(String noteContent, String difficulty, String numQuestions, QuizCallback callback) {
-
-        // 1. Configure Safety Settings (Original Logic)
+    private static GenerativeModelFutures getModel() {
         List<SafetySetting> safetySettings = new ArrayList<>();
         safetySettings.add(new SafetySetting(HarmCategory.HATE_SPEECH, BlockThreshold.ONLY_HIGH));
         safetySettings.add(new SafetySetting(HarmCategory.DANGEROUS_CONTENT, BlockThreshold.ONLY_HIGH));
 
-        // 2. Initialize Model (Using 1.5-flash for speed)
-        GenerativeModel gm = new GenerativeModel(
-                "gemini-2.5-flash",
-                API_KEY,
-                null,
-                safetySettings
-        );
-        GenerativeModelFutures model = GenerativeModelFutures.from(gm);
-
-        // 3. Create the specialized Prompt (Original Logic)
-        String prompt = "You are an educational assistant. Based on the notes provided below, generate a quiz.\n\n" +
-                "NOTES:\n" + noteContent + "\n\n" +
-                "REQUIREMENTS:\n" +
-                "- Difficulty: " + difficulty + "\n" +
-                "- Number of Questions: " + numQuestions + "\n" +
-                "- Format: Return ONLY a raw JSON array. No markdown code blocks, no preamble.\n" +
-                "- Question Structure: Each object must contain 'questionText' (String), 'choices' (Array of 4 Strings), " +
-                "'correctOptionIndex' (Integer 0-3), and 'type' (String 'Multiple Choice').";
-
-        Content content = new Content.Builder().addText(prompt).build();
-
-        // 4. Execute Async Request
-        Executor executor = Executors.newSingleThreadExecutor();
-        ListenableFuture<GenerateContentResponse> response = model.generateContent(content);
-
-        Futures.addCallback(response, new FutureCallback<GenerateContentResponse>() {
-            @Override
-            public void onSuccess(GenerateContentResponse result) {
-                String rawResponse = result.getText();
-                Log.d(TAG, "Raw Response: " + rawResponse);
-
-                if (rawResponse == null || rawResponse.isEmpty()) {
-                    callback.onError("AI returned an empty response.");
-                    return;
-                }
-
-                try {
-                    // Clean response (Original JSON cleaning logic)
-                    String cleanedJson = rawResponse.trim();
-                    if (cleanedJson.startsWith("```")) {
-                        cleanedJson = cleanedJson.replaceAll("(?s)^```(?:json)?\\n|\\n```$", "");
-                    }
-
-                    // Parse JSON
-                    Gson gson = new Gson();
-                    Type listType = new TypeToken<ArrayList<QuestionModel>>(){}.getType();
-                    List<QuestionModel> questions = gson.fromJson(cleanedJson, listType);
-
-                    if (questions == null || questions.isEmpty()) {
-                        callback.onError("No questions could be extracted.");
-                    } else {
-                        callback.onSuccess(questions);
-                    }
-
-                } catch (Exception e) {
-                    Log.e(TAG, "Parsing Error: " + e.getMessage());
-                    callback.onError("Data format error. Please try again.");
-                }
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                Log.e(TAG, "Connection Error", t);
-                callback.onError("API Error: " + t.getLocalizedMessage());
-            }
-        }, executor);
+        GenerativeModel gm = new GenerativeModel(MODEL_NAME, API_KEY, null, safetySettings);
+        return GenerativeModelFutures.from(gm);
     }
 
     /**
-     * New Added Feature: Summarize text using AI
+     * Generates a quiz. Prioritizes text in **bold** or [[brackets]].
      */
-    public static void generateSummary(String noteContent, SummaryCallback callback) {
+    public static void generateQuiz(String noteContent, String difficulty, String numQuestions, QuizCallback callback) {
+        String prompt = "You are an educator. Generate a quiz from the notes below.\n\n" +
+                "NOTES:\n" + noteContent + "\n\n" +
+                "HIGH PRIORITY INSTRUCTION:\n" +
+                "- Any text in **bold** or [[brackets]] is highly important.\n" +
+                "- Ensure at least 60% of the questions are about these prioritized topics.\n\n" +
+                "REQUIREMENTS:\n" +
+                "- Difficulty: " + difficulty + "\n" +
+                "- Number of Questions: " + numQuestions + "\n" +
+                "- Format: Return ONLY a raw JSON array. No preamble.\n" +
+                "- Structure: Array of objects with 'questionText', 'choices' (4), 'correctOptionIndex', and 'type'.";
 
-        // Use same safety settings as quiz generation
-        List<SafetySetting> safetySettings = new ArrayList<>();
-        safetySettings.add(new SafetySetting(HarmCategory.HATE_SPEECH, BlockThreshold.ONLY_HIGH));
-        safetySettings.add(new SafetySetting(HarmCategory.DANGEROUS_CONTENT, BlockThreshold.ONLY_HIGH));
-
-        GenerativeModel gm = new GenerativeModel(
-                "gemini-2.5-flash",
-                API_KEY,
-                null,
-                safetySettings
-        );
-        GenerativeModelFutures model = GenerativeModelFutures.from(gm);
-
-        // Summarization Prompt
-        String prompt = "Summarize the following notes into a concise paragraph. " +
-                "Focus on the key concepts and most important information.\n\n" +
-                "NOTES:\n" + noteContent;
-
-        Content content = new Content.Builder().addText(prompt).build();
-
-        Executor executor = Executors.newSingleThreadExecutor();
-        ListenableFuture<GenerateContentResponse> response = model.generateContent(content);
-
-        Futures.addCallback(response, new FutureCallback<GenerateContentResponse>() {
+        executeRequest(getModel(), prompt, new InternalParser<List<QuestionModel>>() {
             @Override
-            public void onSuccess(GenerateContentResponse result) {
-                String summary = result.getText();
-                if (summary != null && !summary.isEmpty()) {
-                    callback.onSuccess(summary.trim());
-                } else {
-                    callback.onError("AI could not generate a summary.");
-                }
+            public List<QuestionModel> parse(String raw) {
+                Type listType = new TypeToken<ArrayList<QuestionModel>>(){}.getType();
+                return new Gson().fromJson(cleanJson(raw), listType);
             }
-
             @Override
-            public void onFailure(Throwable t) {
-                Log.e(TAG, "Summarization Error", t);
-                callback.onError("API Error: " + t.getLocalizedMessage());
-            }
-        }, executor);
+            public void onSuccess(List<QuestionModel> result) { callback.onSuccess(result); }
+            @Override
+            public void onError(String error) { callback.onError(error); }
+        });
     }
+
+    /**
+     * Generates flashcards. Prioritizes text in **bold** or [[brackets]].
+     */
     public static void generateFlashcards(String noteContent, String type, String difficulty, String count, FlashcardCallback callback) {
-        GenerativeModel gm = new GenerativeModel(
-                "gemini-2.5-flash",
-                API_KEY,
-                null,
-                new ArrayList<>() // Add safety settings here if needed
-        );
-        GenerativeModelFutures model = GenerativeModelFutures.from(gm);
+        String taskDetail = type.equalsIgnoreCase("Terminology") ? "Front=Term, Back=Definition" : "Front=Sentence blank, Back=Word";
 
-        String taskDetail = type.equalsIgnoreCase("Terminology")
-                ? "Create Terminology flashcards. Front = Term, Back = Definition."
-                : "Create Identification flashcards. Front = Sentence with a blank (____), Back = The missing word.";
+        String prompt = "Generate study flashcards. Prioritize text in **bold** or [[brackets]].\n\n" +
+                "NOTES:\n" + noteContent + "\n\n" +
+                "TASK: " + taskDetail + "\n" +
+                "Count: " + count + "\n" +
+                "Output: ONLY raw JSON array of objects with 'front' and 'back' fields.";
 
-        String prompt = "Context: " + noteContent + "\n\n" +
-                "Task: " + taskDetail + "\n" +
-                "Difficulty: " + difficulty + "\n" +
-                "Count: " + count + "\n\n" +
-                "Output: Return ONLY a raw JSON array. Objects must have 'front' and 'back' fields.";
+        executeRequest(getModel(), prompt, new InternalParser<List<Flashcard>>() {
+            @Override
+            public List<Flashcard> parse(String raw) {
+                Type listType = new TypeToken<ArrayList<Flashcard>>(){}.getType();
+                return new Gson().fromJson(cleanJson(raw), listType);
+            }
+            @Override
+            public void onSuccess(List<Flashcard> result) { callback.onSuccess(result); }
+            @Override
+            public void onError(String error) { callback.onError(error); }
+        });
+    }
 
+    /**
+     * Generates comprehensive study notes using HTML formatting.
+     */
+    public static void generateSummaryFromText(String fullText, SummaryCallback callback) {
+        String prompt = "Create comprehensive study notes using HTML (<b>, <i>, <ul>, <li>).\n" +
+                "Structure: Title, Key Concepts, and detailed explanations.\n\n" +
+                "Text:\n" + fullText;
+
+        executeRequest(getModel(), prompt, new InternalParser<String>() {
+            @Override
+            public String parse(String raw) { return raw; }
+            @Override
+            public void onSuccess(String result) { callback.onSuccess(result); }
+            @Override
+            public void onError(String error) { callback.onError(error); }
+        });
+    }
+
+    /**
+     * CLEANJSON FIX: Instead of using problematic regex (replaceAll),
+     * this manually finds the start and end of the JSON array/object.
+     */
+    private static String cleanJson(String raw) {
+        if (raw == null || raw.isEmpty()) return "[]";
+
+        String s = raw.trim();
+
+        // Find the JSON boundaries to ignore markdown code block markers
+        int start = s.indexOf("[");
+        int end = s.lastIndexOf("]");
+
+        if (start != -1 && end != -1 && end > start) {
+            return s.substring(start, end + 1);
+        }
+
+        return s;
+    }
+
+    private interface InternalParser<T> {
+        T parse(String raw);
+        void onSuccess(T result);
+        void onError(String error);
+    }
+
+    /**
+     * Generic wrapper for model execution to reduce repeated code.
+     */
+    private static <T> void executeRequest(GenerativeModelFutures model, String prompt, InternalParser<T> parser) {
         Content content = new Content.Builder().addText(prompt).build();
         Executor executor = Executors.newSingleThreadExecutor();
         ListenableFuture<GenerateContentResponse> response = model.generateContent(content);
@@ -205,61 +170,19 @@ public class GeminiQuizHelper {
             @Override
             public void onSuccess(GenerateContentResponse result) {
                 try {
-                    String raw = result.getText().trim();
-                    if (raw.startsWith("```")) raw = raw.replaceAll("(?s)^```(?:json)?\\n|\\n```$", "");
-
-                    Gson gson = new Gson();
-                    Type listType = new TypeToken<ArrayList<Flashcard>>(){}.getType();
-                    List<Flashcard> cards = gson.fromJson(raw, listType);
-                    callback.onSuccess(cards != null ? cards : new ArrayList<>());
-                } catch (Exception e) { callback.onError("Parsing error"); }
-            }
-            @Override
-            public void onFailure(Throwable t) { callback.onError(t.getMessage()); }
-        }, executor);
-    }
-
-    // REPLACE your generateSummaryFromText method with this static version:
-    public static void generateSummaryFromText(String fullText, SummaryCallback callback) {
-        // 1. Initialize the model (You were missing this!)
-        List<SafetySetting> safetySettings = new ArrayList<>();
-        safetySettings.add(new SafetySetting(HarmCategory.HATE_SPEECH, BlockThreshold.ONLY_HIGH));
-        safetySettings.add(new SafetySetting(HarmCategory.DANGEROUS_CONTENT, BlockThreshold.ONLY_HIGH));
-
-        GenerativeModel gm = new GenerativeModel(
-                "gemini-2.5-flash",
-                API_KEY,
-                null,
-                safetySettings
-        );
-        GenerativeModelFutures model = GenerativeModelFutures.from(gm);
-
-        // 2. Execute Prompt
-        String prompt = "You are an expert study assistant. I will provide text from a document. " +
-                "Please create a comprehensive study note using HTML tags for formatting (<b>, <i>, <ul>, <li>). " +
-                "Structure it with:\n" +
-                "1. A clear Title\n" +
-                "2. Key Concepts in bullet points\n" +
-                "3. Detailed explanations\n\n" +
-                "Text:\n" + fullText;
-
-        Content content = new Content.Builder().addText(prompt).build();
-        Executor executor = Executors.newSingleThreadExecutor();
-        ListenableFuture<GenerateContentResponse> response = model.generateContent(content);
-
-        Futures.addCallback(response, new FutureCallback<GenerateContentResponse>() {
-            @Override
-            public void onSuccess(GenerateContentResponse result) {
-                String text = result.getText();
-                if (text != null) {
-                    callback.onSuccess(text);
-                } else {
-                    callback.onError("AI returned empty response (Safety filter likely)");
+                    String raw = result.getText();
+                    if (raw == null) {
+                        parser.onError("Empty AI response");
+                        return;
+                    }
+                    parser.onSuccess(parser.parse(raw));
+                } catch (Exception e) {
+                    parser.onError("Data parsing failed");
                 }
             }
             @Override
             public void onFailure(Throwable t) {
-                callback.onError(t.getMessage());
+                parser.onError(t.getLocalizedMessage());
             }
         }, executor);
     }

@@ -1,11 +1,7 @@
 package com.example.notewise;
 
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
@@ -13,7 +9,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.NotificationCompat;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
@@ -33,6 +28,7 @@ public class AchievementsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_achievements);
 
+        // "AchievementPrefs" stores which achievements have already popped up
         prefs = getSharedPreferences("AchievementPrefs", MODE_PRIVATE);
         mDatabase = FirebaseDatabase.getInstance().getReference();
         userId = FirebaseAuth.getInstance().getUid();
@@ -47,6 +43,7 @@ public class AchievementsActivity extends AppCompatActivity {
     private void startTracking() {
         DatabaseReference userRef = mDatabase.child("users").child(userId);
 
+        // 1. The Wordsmith (10 Notes)
         userRef.child("notes").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot s) {
@@ -55,6 +52,7 @@ public class AchievementsActivity extends AppCompatActivity {
             @Override public void onCancelled(DatabaseError e) {}
         });
 
+        // 2. Master Stylist (20 Bold)
         userRef.child("stats").child("boldCount").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot s) {
@@ -64,6 +62,7 @@ public class AchievementsActivity extends AppCompatActivity {
             @Override public void onCancelled(DatabaseError e) {}
         });
 
+        // 3. AI Visionary (5 Summaries)
         userRef.child("stats").child("aiCount").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot s) {
@@ -73,6 +72,7 @@ public class AchievementsActivity extends AppCompatActivity {
             @Override public void onCancelled(DatabaseError e) {}
         });
 
+        // 4. Quick Learner (5 Quizzes)
         userRef.child("quizzes").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot s) {
@@ -81,6 +81,7 @@ public class AchievementsActivity extends AppCompatActivity {
             @Override public void onCancelled(DatabaseError e) {}
         });
 
+        // 5. Notebook Collector (3 Notebooks)
         userRef.child("notebooks").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot s) {
@@ -89,15 +90,7 @@ public class AchievementsActivity extends AppCompatActivity {
             @Override public void onCancelled(DatabaseError e) {}
         });
 
-        userRef.child("stats").child("assignedCount").addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot s) {
-                int count = s.exists() ? s.getValue(Integer.class) : 0;
-                setupAch(findViewById(R.id.ach_6), "Stay Organized", "Assign 10 notes.", count, 10);
-            }
-            @Override public void onCancelled(DatabaseError e) {}
-        });
-
+        // 7. Flash Artist (5 Photos)
         userRef.child("stats").child("photoCount").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot s) {
@@ -107,58 +100,52 @@ public class AchievementsActivity extends AppCompatActivity {
             @Override public void onCancelled(DatabaseError e) {}
         });
 
-        userRef.child("stats").child("perfectQuizzes").addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot s) {
-                int count = s.exists() ? s.getValue(Integer.class) : 0;
-                setupAch(findViewById(R.id.ach_8), "Recall Master", "3 perfect scores.", count, 3);
-            }
-            @Override public void onCancelled(DatabaseError e) {}
-        });
-
+        // 9. Architect (Subsequent achievement: 5 Notebooks)
         userRef.child("notebooks").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot s) {
-                // Count how many notebooks exist under the user's 'notebooks' node
-                int notebookCount = (int) s.getChildrenCount();
-
-                // Update the UI using the setupAch helper method
-                setupAch(findViewById(R.id.ach_notebook_master),
-                        "Architect",
-                        "Create 5 notebooks to organize your thoughts.",
-                        notebookCount,
-                        5);
+                setupAch(findViewById(R.id.ach_notebook_master), "Architect", "Create 5 notebooks.", (int)s.getChildrenCount(), 5);
             }
-
-            @Override
-            public void onCancelled(DatabaseError e) {
-                // Handle database errors here
-            }
+            @Override public void onCancelled(DatabaseError e) {}
         });
     }
 
     private void setupAch(View v, String title, String desc, int cur, int total) {
         if (v == null) return;
 
+        // RULE: Clamp progress so it doesn't show 4/3
+        int displayProgress = Math.min(cur, total);
+
         TextView tvTitle = v.findViewById(R.id.tvTitle);
         TextView tvProg = v.findViewById(R.id.tvProgressText);
         ProgressBar pb = v.findViewById(R.id.pbAchievement);
         ImageView ivIcon = v.findViewById(R.id.ivIcon);
+        View cardUnlocked = v.findViewById(R.id.cardUnlocked);
 
         tvTitle.setText(title);
         ((TextView)v.findViewById(R.id.tvDesc)).setText(desc);
-        tvProg.setText(cur + "/" + total);
+        tvProg.setText(displayProgress + "/" + total);
         pb.setMax(total);
-        pb.setProgress(cur);
+        pb.setProgress(displayProgress);
 
         if (cur >= total && total > 0) {
             int goldColor = Color.parseColor("#FFD700");
             tvProg.setTextColor(goldColor);
             ivIcon.setColorFilter(goldColor);
+
+            // Check if already notified
+            if (!prefs.getBoolean("notified_" + title, false)) {
+                Toast.makeText(this, "Achievement Unlocked: " + title + "! 🏆", Toast.LENGTH_LONG).show();
+                prefs.edit().putBoolean("notified_" + title, true).apply();
+            }
         } else {
-            // Reset to default white if not achieved
             ivIcon.setColorFilter(Color.parseColor("#FFFFFF"));
             tvProg.setTextColor(Color.parseColor("#FFFFFF"));
+        }
+
+        // ALWAYS HIDE the green "Achievement Unlocked" card
+        if (cardUnlocked != null) {
+            cardUnlocked.setVisibility(View.GONE);
         }
     }
 }
