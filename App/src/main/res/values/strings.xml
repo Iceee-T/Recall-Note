@@ -5,4 +5,5 @@
     <string name="Scroll">Scroll_View</string>
     <string name="Filter_Button">Filter</string>
     <string name="accessibility_description">Used to enforce active recall before social media use.</string>
+    <string name="accessibility_service_description">This service blocks social media apps until you complete your daily active recall task in RecallNote.</string>
 </resources>

@@ -50,5 +50,6 @@ public class AddquizActivity extends AppCompatActivity {
             Intent intent = new Intent(AddquizActivity.this, ManualquizActivity.class);
             startActivity(intent);
         });
+        DailyTaskManager.updateDailyTask();
     }
 }

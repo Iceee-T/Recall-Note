@@ -56,7 +56,11 @@ public class LoginActivity extends AppCompatActivity {
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
                             Toast.makeText(this, "Welcome back!", Toast.LENGTH_SHORT).show();
+
                             startActivity(new Intent(LoginActivity.this, HomepageActivity.class));
+                            Intent intent = new Intent(LoginActivity.this, HomepageActivity.class);
+                            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
                             finish();
                         } else {
                             Toast.makeText(this, "Login Failed: Check credentials", Toast.LENGTH_SHORT).show();

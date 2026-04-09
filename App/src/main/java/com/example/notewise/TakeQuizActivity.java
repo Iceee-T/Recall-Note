@@ -14,6 +14,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +45,7 @@ public class TakeQuizActivity extends AppCompatActivity {
 
         Quiz quiz = (Quiz) getIntent().getSerializableExtra("QUIZ_OBJECT");
         if (quiz != null && quiz.getQuestions() != null && !quiz.getQuestions().isEmpty()) {
+            currentQuiz = quiz;
             tvQuizTitle.setText(quiz.getTitle());
             this.questionList = quiz.getQuestions();
 
@@ -62,6 +67,9 @@ public class TakeQuizActivity extends AppCompatActivity {
         findViewById(R.id.btnExit).setOnClickListener(v -> finish());
     }
 
+    private Quiz currentQuiz;
+
+
     private void fetchAnyQuizFromFirebase() {
         String currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid();
         com.google.firebase.database.DatabaseReference mDatabase =
@@ -75,6 +83,10 @@ public class TakeQuizActivity extends AppCompatActivity {
                         Quiz quiz = quizSnapshot.getValue(Quiz.class);
                         if (quiz != null && quiz.getQuestions() != null && !quiz.getQuestions().isEmpty()) {
                             // Successfully found a quiz! Now set it up.
+
+                            currentQuiz = quiz;  // <-- store it
+                            currentQuiz.setId(quizSnapshot.getKey()); // ensure ID is set
+
                             tvQuizTitle.setText(quiz.getTitle());
                             questionList = quiz.getQuestions();
 
@@ -121,7 +133,11 @@ public class TakeQuizActivity extends AppCompatActivity {
                 tvTimer.setText(String.format(Locale.getDefault(), "%02d:%02d", mins, secs));
             }
             @Override
-            public void onFinish() { finishQuiz(); }
+            public void onFinish() {
+                tvTimer.setText("00:00");
+                Toast.makeText(TakeQuizActivity.this, "Time's up!", Toast.LENGTH_SHORT).show();
+                finishQuiz(); // Automatically ends the quiz and calculates the current score
+            }
         }.start();
     }
 
@@ -197,19 +213,36 @@ public class TakeQuizActivity extends AppCompatActivity {
     }
 
     private void finishQuiz() {
+        // 1. Stop the background timer
         if (countDownTimer != null) countDownTimer.cancel();
 
-        // Prepare data for the Result Activity
+        // 2. Bulletproof Time Calculation (New)
+        long timeTakenMillis = System.currentTimeMillis() - startTimeMillis;
+        int minutes = (int) (timeTakenMillis / 1000) / 60;
+        int seconds = (int) (timeTakenMillis / 1000) % 60;
+        String finalTimeString = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
+
+        // 3. Update the quiz's next review date in Firebase (Your original logic)
+        if (currentQuiz != null) {
+            long newNextReview = System.currentTimeMillis() + 24 * 60 * 60 * 1000; // 1 day
+            currentQuiz.setNextReview(newNextReview);
+            DatabaseReference quizRef = FirebaseDatabase.getInstance().getReference("quizzes")
+                    .child(FirebaseAuth.getInstance().getUid())
+                    .child(currentQuiz.getId());
+            quizRef.child("nextReview").setValue(newNextReview);
+        }
+
+        // 4. Prepare the Intent and send all the data
         Intent intent = new Intent(this, QuizResultActivity.class);
         intent.putExtra("SCORE", score);
         intent.putExtra("TOTAL_QUESTIONS", questionList.size());
-
-        // Pass the original Quiz object so the result screen can offer a "Retake"
         intent.putExtra("QUIZ_OBJECT", getIntent().getSerializableExtra("QUIZ_OBJECT"));
-
-        // Pass question data for the feedback list in QuizResultActivity
         intent.putExtra("QUESTIONS", (java.io.Serializable) questionList);
         intent.putIntegerArrayListExtra("USER_ANSWERS", userAnswers);
+
+        // 5. Send the fixed time
+        intent.putExtra("TIME_TAKEN", finalTimeString);
+        intent.putExtra("TIMER_ENABLED", countDownTimer != null);
 
         startActivity(intent);
         finish();
@@ -218,6 +251,7 @@ public class TakeQuizActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         // We call the toast to inform the user
+        super.onBackPressed();
         Toast.makeText(this, "Complete the quiz to unlock your phone!", Toast.LENGTH_SHORT).show();
 
         // To satisfy Android Studio's requirement for the super call

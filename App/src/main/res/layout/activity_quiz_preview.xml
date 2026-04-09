@@ -158,6 +158,44 @@
             android:dropDownSelector="?attr/selectableItemBackground"
             android:paddingEnd="12dp" />
 
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_rounded_dark"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:text="Enable App Blocker for this Quiz"
+                android:textColor="@color/white"
+                android:textSize="16sp" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchActiveRecall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                app:thumbTint="@color/white"
+                app:trackTint="#4D4D4D" />
+        </RelativeLayout>
+
+        <TextView
+            android:id="@+id/tvActiveRecallDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_rounded_dark"
+            android:gravity="center"
+            android:padding="16dp"
+            android:text="Tap to select expiration date"
+            android:textColor="#FFB74D"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnStartQuiz"
             android:layout_width="200dp"

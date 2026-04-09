@@ -56,6 +56,18 @@
             app:tint="@color/white" />
     </LinearLayout>
 
+    <Button
+        android:id="@+id/btnResetAll"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackground"
+        android:text="Reset All"
+        android:textSize="15sp"
+        android:padding="8dp"
+        android:textColor="#FF5252"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <GridLayout
         android:id="@+id/calendarGrid"
         android:layout_width="match_parent"

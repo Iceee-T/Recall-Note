@@ -112,6 +112,7 @@ public class QuizActivity extends AppCompatActivity {
                     })
                     .addOnFailureListener(e -> Toast.makeText(this, "Error saving quiz", Toast.LENGTH_SHORT).show());
         }
+        DailyTaskManager.updateDailyTask();
     }
 
     /**
@@ -171,7 +172,9 @@ public class QuizActivity extends AppCompatActivity {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+        DailyTaskManager.updateDailyTask();
     }
+
 
     private void deleteQuizFromFirebase(String quizId) {
         // This removes the quiz metadata and all questions nested inside it
@@ -182,5 +185,6 @@ public class QuizActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Failed to delete: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
+        DailyTaskManager.updateDailyTask();
     }
 }

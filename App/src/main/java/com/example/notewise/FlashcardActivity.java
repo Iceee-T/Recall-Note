@@ -62,6 +62,7 @@ public class FlashcardActivity extends AppCompatActivity {
 
         setupBottomNav();
         fetchFlashcards();
+        DailyTaskManager.updateDailyTask();
     }
 
 
@@ -124,5 +125,6 @@ public class FlashcardActivity extends AppCompatActivity {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+        DailyTaskManager.updateDailyTask();
     }
 }

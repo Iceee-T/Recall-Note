@@ -3,6 +3,7 @@ package com.example.notewise;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
@@ -35,34 +36,53 @@ public class TakeCardActivity extends AppCompatActivity {
     private LinearLayout ratingLayout;
     private Button btnFlip, btnAgain, btnHard, btnGood;
     private DatabaseReference mDatabase;
+    private boolean missedAnyCard = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_take_card);
+        DailyTaskManager.endRedirect();
+
 
         // 1. FIRST: Retrieve the data from the Intent
         currentSet = (FlashcardSet) getIntent().getSerializableExtra("set_cards");
 
-        // 2. SECOND: Initialize the Database Reference (now that currentSet is not null)
+        // 2. SECOND: Crash-proof Initialization
         if (currentSet != null) {
-            mDatabase = FirebaseDatabase.getInstance().getReference("flashcards")
-                    .child(FirebaseAuth.getInstance().getUid())
-                    .child(currentSet.getId()).child("cards");
+            String currentUid = FirebaseAuth.getInstance().getUid();
 
+            // Check if user is logged in
+            if (currentUid != null) {
+                mDatabase = FirebaseDatabase.getInstance().getReference("flashcards")
+                        .child(currentUid)
+                        .child(currentSet.getId()).child("cards");
+            } else {
+                Toast.makeText(this, "User not logged in!", Toast.LENGTH_SHORT).show();
+                finish();
+                return;
+            }
 
-            if (currentSet.getCards() != null) {
+            // Check if cards actually exist before shuffling!
+            if (currentSet.getCards() != null && !currentSet.getCards().isEmpty()) {
                 cards = currentSet.getCards();
-                // AUTO-SHUFFLE: Mix the cards immediately
+                // Assign original indices BEFORE shuffling
+                for (int i = 0; i < cards.size(); i++) {
+                    cards.get(i).setOriginalIndex(i);
+                }
                 Collections.shuffle(cards);
+            } else {
+                Toast.makeText(this, "No cards available in this set!", Toast.LENGTH_SHORT).show();
+                finish();
+                return; // Stop the activity from crashing further down
             }
         } else {
-            // Handle the case where the set didn't pass correctly
             Toast.makeText(this, "Error: Flashcard set not found", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
 
+        // Initialize Views
         tvProgress = findViewById(R.id.tvProgress);
         tvMainText = findViewById(R.id.tvMainText);
         tvCardType = findViewById(R.id.tvCardType);
@@ -133,7 +153,8 @@ public class TakeCardActivity extends AppCompatActivity {
 
     private void requeueCard(Flashcard card) {
         // Save to Firebase first so data is persistent
-        mDatabase.child(String.valueOf(index)).setValue(card).addOnSuccessListener(aVoid -> {
+        mDatabase.child(String.valueOf(card.getOriginalIndex())).setValue(card)
+                .addOnSuccessListener(aVoid -> {
             // Move the card to the end of our local list
             cards.remove(index);
             cards.add(card);
@@ -166,8 +187,7 @@ public class TakeCardActivity extends AppCompatActivity {
 
     private void showSessionComplete() {
         Toast.makeText(this, "Session Finished!", Toast.LENGTH_SHORT).show();
-        // You could also add a dialog here to show summary stats
-        finish();
+        finishDeck(); // REPLACE completeDailyTask() WITH THIS
     }
 
     private void updateUI() {
@@ -186,6 +206,7 @@ public class TakeCardActivity extends AppCompatActivity {
         } else {
             ratingLayout.setVisibility(View.GONE);
         }
+
     }
 
     private void flipAnimation() {
@@ -208,14 +229,28 @@ public class TakeCardActivity extends AppCompatActivity {
     }
 
     private void finishDeck() {
-        // If you want to force 100% mastery here, you'd track if they hit 'Again'
-        // during the session. If they didn't, grant the pass:
+        // 1. ALWAYS advance the schedule so this deck isn't overdue anymore
+        if (currentSet != null) {
+            long nextSetReview = System.currentTimeMillis() + 24 * 60 * 60 * 1000; // 1 day
+            currentSet.setTimestamp(String.valueOf(nextSetReview));
+            DatabaseReference setRef = FirebaseDatabase.getInstance().getReference("flashcards")
+                    .child(FirebaseAuth.getInstance().getUid())
+                    .child(currentSet.getId());
+            setRef.child("timestamp").setValue(String.valueOf(nextSetReview));
+        }
 
-        android.content.SharedPreferences prefs = getSharedPreferences("ActiveRecallPrefs", MODE_PRIVATE);
-        String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(new java.util.Date());
-        prefs.edit().putString("last_success_date", today).apply();
+        // 2. ONLY unlock social media if they mastered it
+        if (!missedAnyCard) {
+            android.content.SharedPreferences prefs = getSharedPreferences("ActiveRecallPrefs", MODE_PRIVATE);
+            String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(new java.util.Date());
+            prefs.edit().putString("last_success_date", today).apply();
+            prefs.edit().remove("temp_unlock_time").apply();
+            DailyTaskManager.clearBlockerTask();
 
-        Toast.makeText(this, "Deck Mastered! Social Media Unlocked.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Deck Mastered! Social Media Unlocked.", Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, "You struggled with some cards. Retake to unlock apps!", Toast.LENGTH_LONG).show();
+        }
         finish();
     }
 }

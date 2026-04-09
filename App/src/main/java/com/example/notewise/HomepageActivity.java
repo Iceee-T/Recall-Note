@@ -78,6 +78,8 @@ public class HomepageActivity extends AppCompatActivity {
         setContentView(R.layout.activity_home_page);
         PDFBoxResourceLoader.init(getApplicationContext());
 
+        DailyTaskManager.updateDailyTask();
+
         AchievementTracker tracker = new AchievementTracker(this);
         tracker.startGlobalTracking();
 
@@ -171,6 +173,58 @@ public class HomepageActivity extends AppCompatActivity {
         loadingDialog.setMessage("AI is creating a study note from your file...");
         loadingDialog.setCancelable(false);
         loadingDialog.show();
+    }
+    private void handleBlockerRedirection() {
+        // Only redirect if user is logged in
+        if (FirebaseAuth.getInstance().getCurrentUser() == null) return;
+
+        DailyTaskManager.BlockerTask task = DailyTaskManager.getCurrentBlockerTask();
+        if (task == null) return;
+
+        // DO NOT call setDailyCompletion() here!
+        // The user must complete the task first.
+
+        if ("quiz".equals(task.type)) {
+            fetchQuizAndLaunch(task.id);
+        } else if ("flashcard".equals(task.type)) {
+            fetchFlashcardAndLaunch(task.id);
+        }
+    }
+
+    private void fetchQuizAndLaunch(String quizId) {
+        String uid = FirebaseAuth.getInstance().getUid();
+        DatabaseReference ref = FirebaseDatabase.getInstance().getReference("quizzes")
+                .child(uid).child(quizId);
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Quiz quiz = snapshot.getValue(Quiz.class);
+                if (quiz != null) {
+                    Intent intent = new Intent(HomepageActivity.this, TakeQuizActivity.class);
+                    intent.putExtra("QUIZ_OBJECT", quiz);
+                    startActivity(intent);
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void fetchFlashcardAndLaunch(String setId) {
+        String uid = FirebaseAuth.getInstance().getUid();
+        DatabaseReference ref = FirebaseDatabase.getInstance().getReference("flashcards")
+                .child(uid).child(setId);
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                FlashcardSet set = snapshot.getValue(FlashcardSet.class);
+                if (set != null) {
+                    Intent intent = new Intent(HomepageActivity.this, TakeCardActivity.class);
+                    intent.putExtra("set_cards", set);
+                    startActivity(intent);
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
     }
 
     private void dismissLoadingDialog() {

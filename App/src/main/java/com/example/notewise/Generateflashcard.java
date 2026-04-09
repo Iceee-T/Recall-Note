@@ -202,6 +202,7 @@ public class Generateflashcard extends AppCompatActivity {
             startActivity(intent);
             finish();
         });
+        DailyTaskManager.updateDailyTask();
     }
 
     // INTERNAL MODELS TO PREVENT "CANNOT RESOLVE" ERRORS

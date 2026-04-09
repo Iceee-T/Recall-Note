@@ -308,5 +308,7 @@ public class GenerateQuiz extends AppCompatActivity {
                 Toast.makeText(GenerateQuiz.this, "Save Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             });
         }
+        DailyTaskManager.updateDailyTask();
+
     }
 }

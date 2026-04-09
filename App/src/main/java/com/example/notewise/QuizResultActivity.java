@@ -9,6 +9,8 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -30,13 +32,14 @@ public class QuizResultActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_quiz_result);
+        boolean isTimerEnabled = getIntent().getBooleanExtra("TIMER_ENABLED", false);
 
         // 1. Get Data from Intent
         // Ensure "TOTAL" matches the key used in TakeQuizActivity's finishQuiz()
         int score = getIntent().getIntExtra("SCORE", 0);
         int total = getIntent().getIntExtra("TOTAL_QUESTIONS", 0);
         String quizTitle = getIntent().getStringExtra("QUIZ_TITLE");
-        String timeElapsed = getIntent().getStringExtra("TIME_ELAPSED");
+        String timeElapsed = getIntent().getStringExtra("TIME_TAKEN");
         Quiz quizObject = (Quiz) getIntent().getSerializableExtra("QUIZ_OBJECT");
 
         ArrayList<QuestionModel> questions = (ArrayList<QuestionModel>) getIntent().getSerializableExtra("QUESTIONS");
@@ -53,14 +56,37 @@ public class QuizResultActivity extends AppCompatActivity {
         TextView tvTime = findViewById(R.id.tvTime);
         ProgressBar progressBar = findViewById(R.id.resultProgressBar);
         com.google.android.material.button.MaterialButton btnDone = findViewById(R.id.btnDone);
+        TextView tvPercent = findViewById(R.id.tvPercent);
 
         tvScore.setText(score + " / " + total);
         tvTime.setText(timeElapsed);
-        if (quizTitle != null) tvTopicTitle.setText(quizTitle);
+        if (quizTitle != null) {
+            tvTopicTitle.setText(quizTitle);
+        } else if (quizObject != null) {
+            // Use your Quiz object's getter method (might be getTitle() or getName() depending on your model)
+            tvTopicTitle.setText(quizObject.getTitle());
+        } else {
+            tvTopicTitle.setText("Daily Quiz"); // A safe fallback if both are missing
+        }
+
+        if (isTimerEnabled) {
+            tvTime.setText(timeElapsed);
+            tvTime.setVisibility(View.VISIBLE); // Show the time
+        } else {
+            tvTime.setVisibility(View.GONE); // Completely hide the TextView!
+
+            // TIP: If you have a clock icon or a "Time:" label next to tvTime,
+            // you should grab that view and set it to View.GONE right here too!
+        }
 
         if (total > 0) {
             int progress = (int) (((float) score / total) * 100);
             progressBar.setProgress(progress);
+            // ADDED: Update the actual text on the screen to match the progress!
+            tvPercent.setText(progress + "%");
+        } else {
+            progressBar.setProgress(0);
+            tvPercent.setText("0%");
         }
 
         // 3. App Blocker Reward & Penalty Logic
@@ -80,10 +106,13 @@ public class QuizResultActivity extends AppCompatActivity {
             android.widget.Toast.makeText(this, "Score 0. You must retake to unlock.", android.widget.Toast.LENGTH_SHORT).show();
         }
         else {
-            // CASE: Partial Score -> 10 Minute Temporary Pass
-            long tenMinutesFromNow = System.currentTimeMillis() + (10 * 1000);
-            editor.putLong("temp_unlock_time", tenMinutesFromNow);
-            android.widget.Toast.makeText(this, "Good effort! Unlocked for 10 minutes.", android.widget.Toast.LENGTH_LONG).show();
+            // 1 minute = 60 seconds * 1000 milliseconds
+            long oneMinuteFromNow = System.currentTimeMillis() + (60 * 1000);
+
+            editor.putLong("temp_unlock_time", oneMinuteFromNow);
+
+// Don't forget to update the Toast message so the user knows!
+            Toast.makeText(this, "Good effort! Unlocked for 1 minute.", Toast.LENGTH_LONG).show();
         }
         editor.apply();
 
@@ -107,16 +136,45 @@ public class QuizResultActivity extends AppCompatActivity {
             btnDone.setText("Retake Quiz");
         }
 
-        btnDone.setOnClickListener(v -> {
-            if (score < total) {
-                Intent retryIntent = new Intent(this, TakeQuizActivity.class);
-                retryIntent.putExtra("QUIZ_OBJECT", quizObject);
-                retryIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                startActivity(retryIntent);
-            } else {
-                startActivity(new Intent(this, HomepageActivity.class));
+        findViewById(R.id.btnDone).setOnClickListener(v -> {
+            // 1. Calculate the percentage score
+            double percentage = 0;
+            if (total > 0) {
+                percentage = ((double) score / total) * 100;
             }
-            finish();
+
+            // 2. Decide if they passed (e.g., 70% or higher)
+            if (percentage >= 70) {
+                // THEY PASSED! Tear up the blocker task and unlock the phone.
+                String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(new java.util.Date());
+                prefs.edit()
+                        .putString("last_success_date", today)
+                        .remove("temp_unlock_time")
+                        .apply();
+
+                DailyTaskManager.clearBlockerTask();
+                Toast.makeText(this, "Quiz Passed! Apps Unlocked.", Toast.LENGTH_LONG).show();
+
+                // Close the result screen normally
+                finish();
+
+            } else {
+                // THEY FAILED! Do NOT unlock the phone.
+                Toast.makeText(this, "Score too low (" + (int)percentage + "%). Retake the quiz to unlock apps!", Toast.LENGTH_LONG).show();
+
+                // NEW LOGIC: Instantly throw the Blocker Screen in their face!
+                boolean optInEnabled = prefs.getBoolean("opt_in_enabled", false);
+
+                if (optInEnabled) {
+                    Intent intent = new Intent(this, BlockerPromptActivity.class);
+                    // CLEAR_TASK ensures they can't hit the back button to escape it
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                } else {
+                    // If they are just taking a normal quiz (no blocker), let them leave normally
+                    finish();
+                }
+            }
         });
     }
 

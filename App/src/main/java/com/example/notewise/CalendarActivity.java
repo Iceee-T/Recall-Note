@@ -9,6 +9,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.GridLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -80,6 +81,20 @@ public class CalendarActivity extends AppCompatActivity {
         quizRef = FirebaseDatabase.getInstance().getReference("quizzes").child(currentUid);
 
         loadData();
+
+        findViewById(R.id.btnResetAll).setOnClickListener(v -> {
+            // Show a confirmation dialog so they don't click it by accident!
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("Fresh Start")
+                    .setMessage("This will clear all scheduled reviews and unblock your apps. Continue?")
+                    .setPositiveButton("Yes", (dialog, which) -> {
+                        DailyTaskManager.resetAllSchedules(this);
+                        Toast.makeText(this, "All tasks cleared. Fresh start active!", Toast.LENGTH_SHORT).show();
+
+                    })
+                    .setNegativeButton("No", null)
+                    .show();
+        });
     }
 
     private void loadData() {
