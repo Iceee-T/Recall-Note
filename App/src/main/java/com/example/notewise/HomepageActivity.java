@@ -13,11 +13,14 @@ import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
@@ -30,6 +33,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class HomepageActivity extends AppCompatActivity {
+    private FloatingActionButton fabMain;
+    private com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton fabUpload, fabCreateNote;
+    private boolean isMenuOpen = false;
 
     private RecyclerView recyclerView;
     private NoteAdapter adapter;
@@ -44,10 +50,60 @@ public class HomepageActivity extends AppCompatActivity {
     private boolean isStudyModeActive = false;
     private android.app.NotificationManager notificationManager;
 
+
+    private final ActivityResultLauncher<String[]> filePickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.OpenDocument(),
+            uri -> {
+                if (uri != null) {
+                    // Grant long-term read permission to the URI
+                    getContentResolver().takePersistableUriPermission(uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                    // Send to Editor
+                    Intent intent = new Intent(this, Note_EditorActivity.class);
+                    intent.putExtra("FILE_URI", uri.toString());
+                    intent.putExtra("IS_AI_UPLOAD", true);
+                    startActivity(intent);
+                }
+            }
+    );
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home_page);
+
+        AchievementTracker tracker = new AchievementTracker(this);
+        tracker.startGlobalTracking();
+
+        // Initialize FABs
+        fabMain = findViewById(R.id.fab);
+        fabUpload = findViewById(R.id.fabUpload);
+        fabCreateNote = findViewById(R.id.fabCreateNote);
+
+        fabMain.setOnClickListener(v -> toggleFabMenu());
+
+        // Action for Create Note
+        fabCreateNote.setOnClickListener(v -> {
+            toggleFabMenu(); // Close menu
+            startActivity(new Intent(HomepageActivity.this, Note_EditorActivity.class));
+        });
+
+        // Action for Upload
+        fabUpload.setOnClickListener(v -> {
+            // Manually close the menu after clicking upload
+            fabUpload.setVisibility(View.GONE);
+            fabCreateNote.setVisibility(View.GONE);
+            fabMain.setImageResource(android.R.drawable.ic_input_add);
+            isMenuOpen = false;
+
+            // Launch the picker
+            filePickerLauncher.launch(new String[]{
+                    "text/plain",
+                    "application/pdf",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            });
+        });
 
         // 1. Initialize Firebase & Auth
         // We get the UID to ensure the homepage only loads THIS user's general notes
@@ -77,7 +133,6 @@ public class HomepageActivity extends AppCompatActivity {
         ImageView btnMenu = findViewById(R.id.imageButtonMenu);
         LinearLayout layoutNotebook = findViewById(R.id.layoutNotebook);
         LinearLayout layoutQuiz = findViewById(R.id.layoutQuiz);
-        FloatingActionButton fab = findViewById(R.id.fab);
         LinearLayout layoutFlashcard = findViewById(R.id.layoutFlashcard);
 
         // 3. Setup RecyclerView
@@ -106,13 +161,24 @@ public class HomepageActivity extends AppCompatActivity {
         btnMenu.setOnClickListener(this::showPopupMenu);
 
         // 5. FAB - Create new General Note inside the user's specific general folder
-        fab.setOnClickListener(v -> {
-            Intent intent = new Intent(this, Note_EditorActivity.class);
-            intent.putExtra("notebook_id", "general_notes/" + currentUserId);
-            startActivity(intent);
-        });
 
         // 6. Start Syncing
+    }
+
+    private void toggleFabMenu() {
+        if (!isMenuOpen) {
+            // Show buttons
+            fabUpload.show();
+            fabCreateNote.show();
+            fabMain.setImageResource(android.R.drawable.ic_menu_close_clear_cancel); // Change + to X
+            isMenuOpen = true;
+        } else {
+            // Hide buttons
+            fabUpload.hide();
+            fabCreateNote.hide();
+            fabMain.setImageResource(android.R.drawable.ic_input_add); // Change X back to +
+            isMenuOpen = false;
+        }
     }
 
     private void toggleStudyMode(ImageView icon, TextView text) {
@@ -144,6 +210,8 @@ public class HomepageActivity extends AppCompatActivity {
             Toast.makeText(this, "Study Mode: Do Not Disturb OFF", Toast.LENGTH_SHORT).show();
         }
     }
+
+
 
     private void loadGeneralNotes() {
         notesListener = new ValueEventListener() { // Store it here

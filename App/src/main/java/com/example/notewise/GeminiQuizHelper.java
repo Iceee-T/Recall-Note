@@ -21,13 +21,21 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 public class GeminiQuizHelper {
 
+    private GenerativeModelFutures model;
     private static final String TAG = "GEMINI_DEBUG";
 
     // Original API Key
-    private static final String API_KEY = "AIzaSyALPm2DMG8NzC60Kxy_0WqJFZ9qRfbGboU";
+    private static final String API_KEY = "AIzaSyCemHxlvPRMbCMudPGvcFSuzsDvtfQW19Q";
+
+
 
     // Original Quiz Callback
     public interface QuizCallback {
@@ -208,6 +216,51 @@ public class GeminiQuizHelper {
             }
             @Override
             public void onFailure(Throwable t) { callback.onError(t.getMessage()); }
+        }, executor);
+    }
+
+    // REPLACE your generateSummaryFromText method with this static version:
+    public static void generateSummaryFromText(String fullText, SummaryCallback callback) {
+        // 1. Initialize the model (You were missing this!)
+        List<SafetySetting> safetySettings = new ArrayList<>();
+        safetySettings.add(new SafetySetting(HarmCategory.HATE_SPEECH, BlockThreshold.ONLY_HIGH));
+        safetySettings.add(new SafetySetting(HarmCategory.DANGEROUS_CONTENT, BlockThreshold.ONLY_HIGH));
+
+        GenerativeModel gm = new GenerativeModel(
+                "gemini-2.5-flash",
+                API_KEY,
+                null,
+                safetySettings
+        );
+        GenerativeModelFutures model = GenerativeModelFutures.from(gm);
+
+        // 2. Execute Prompt
+        String prompt = "You are an expert study assistant. I will provide text from a document. " +
+                "Please create a comprehensive study note using HTML tags for formatting (<b>, <i>, <ul>, <li>). " +
+                "Structure it with:\n" +
+                "1. A clear Title\n" +
+                "2. Key Concepts in bullet points\n" +
+                "3. Detailed explanations\n\n" +
+                "Text:\n" + fullText;
+
+        Content content = new Content.Builder().addText(prompt).build();
+        Executor executor = Executors.newSingleThreadExecutor();
+        ListenableFuture<GenerateContentResponse> response = model.generateContent(content);
+
+        Futures.addCallback(response, new FutureCallback<GenerateContentResponse>() {
+            @Override
+            public void onSuccess(GenerateContentResponse result) {
+                String text = result.getText();
+                if (text != null) {
+                    callback.onSuccess(text);
+                } else {
+                    callback.onError("AI returned empty response (Safety filter likely)");
+                }
+            }
+            @Override
+            public void onFailure(Throwable t) {
+                callback.onError(t.getMessage());
+            }
         }, executor);
     }
 }
