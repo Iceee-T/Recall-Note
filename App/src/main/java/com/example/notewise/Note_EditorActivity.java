@@ -682,6 +682,7 @@ public class Note_EditorActivity extends AppCompatActivity {
                     GeminiQuizHelper.generateSummary(text, new GeminiQuizHelper.SummaryCallback() {
                         @Override
                         public void onSuccess(String summary) {
+                            // THIS IS THE NEW LINE:
                             FirebaseDatabase.getInstance().getReference("users").child(FirebaseAuth.getInstance().getUid())
                                     .child("stats").child("aiCount").setValue(ServerValue.increment(1));
                             runOnUiThread(() -> {
@@ -718,9 +719,9 @@ public class Note_EditorActivity extends AppCompatActivity {
             if (start == end) { start = 0; end = etNoteContent.getText().length(); }
             Editable str = etNoteContent.getText();
             switch (item.getItemId()) {
-                case 1:
+                case 1: // When Bold is clicked
                     str.setSpan(new StyleSpan(Typeface.BOLD), start, end, 0);
-                    // INCREMENT BOLD COUNT
+                    // THIS IS THE NEW LINE:
                     FirebaseDatabase.getInstance().getReference("users").child(FirebaseAuth.getInstance().getUid())
                             .child("stats").child("boldCount").setValue(ServerValue.increment(1));
                     break;
@@ -746,9 +747,10 @@ public class Note_EditorActivity extends AppCompatActivity {
         imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
         imageView.setImageBitmap(bitmap);
 
-        frame.addView(imageView);
+        frame.addView(imageView);       
         setupInteraction(frame); // This makes it draggable/resizable
         noteContainer.addView(frame);
+        // THIS IS THE NEW LINE:
         FirebaseDatabase.getInstance().getReference("users")
                 .child(FirebaseAuth.getInstance().getUid())
                 .child("stats").child("photoCount")
